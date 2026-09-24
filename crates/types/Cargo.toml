@@ -1,0 +1,10 @@
+[package]
+name = "roasted-types"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+capnp = "0.27"
+
+[build-dependencies]
+capnpc = "0.27"
