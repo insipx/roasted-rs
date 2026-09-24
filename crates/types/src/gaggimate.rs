@@ -4,11 +4,6 @@
 //! <https://github.com/jniebuhr/gaggimate/blob/001a475105cdfa11c54e2c688046f8159dda8d3e/docs/websocket-api.yaml>.
 //! Profiles follow `schema/profile.json` at that revision.
 //!
-//! Decode with `serde_json::from_str::<Message>()`. Status frames are patches:
-//! omitted fields retain prior state, explicit null clears it. These types
-//! describe the JSON shape; numerical operating limits and profile constraints
-//! such as nonempty phases require separate validation. No network I/O or
-//! machine control is performed here.
 //!
 //! ```
 //! use roasted_types::gaggimate::{Message, Patch};
