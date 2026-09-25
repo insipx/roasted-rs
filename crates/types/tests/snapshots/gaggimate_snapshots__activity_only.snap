@@ -1,0 +1,34 @@
+---
+source: crates/types/tests/gaggimate_snapshots.rs
+expression: message
+---
+Status(
+    Status {
+        process: Value(
+            ProcessStatus {
+                activity: Inactive,
+                phase: None,
+                label: None,
+                elapsed_ms: None,
+                utility: None,
+                target_type: None,
+                phase_target: None,
+                phase_progress: None,
+            },
+        ),
+        current_temperature: Absent,
+        target_temperature: Absent,
+        current_pressure: Absent,
+        current_flow: Absent,
+        current_weight: Absent,
+        bluetooth_weight: Absent,
+        scale_connected: Absent,
+        system_state: Absent,
+        warnings: Absent,
+        target_pressure: Absent,
+        machine_mode: Absent,
+        profile_label: Absent,
+        pressure_capable: Absent,
+        dimming_capable: Absent,
+    },
+)

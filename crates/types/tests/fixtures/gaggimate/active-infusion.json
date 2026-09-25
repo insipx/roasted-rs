@@ -1,0 +1,12 @@
+{
+  "tp": "evt:status",
+  "m": 1,
+  "p": "Adaptive v2",
+  "ct": 96.482,
+  "pr": 3.737,
+  "fl": 0.105,
+  "process": {
+    "a": 1, "s": "infusion", "l": "Prefill", "e": 338,
+    "tt": "time", "pt": 5000, "pp": 338
+  }
+}

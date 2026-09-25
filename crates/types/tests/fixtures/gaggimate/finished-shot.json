@@ -1,0 +1,11 @@
+{
+  "tp": "evt:status",
+  "m": 1,
+  "ct": 87.642,
+  "pr": 8.249,
+  "fl": 2.252,
+  "process": {
+    "a": 0, "s": "brew", "l": "Finished", "e": 56215,
+    "tt": "volumetric", "pt": 38, "pp": 37.5
+  }
+}

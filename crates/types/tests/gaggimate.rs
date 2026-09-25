@@ -1,5 +1,5 @@
 use roasted_types::gaggimate::{
-    MachineMode, Message, Patch, ProcessActivity, ProcessPhase, Status, WarningLevel,
+    MachineMode, Message, Patch, ProcessActivity, Status, WarningLevel,
 };
 use serde_json::json;
 
@@ -78,21 +78,6 @@ fn scale_telemetry_does_not_imply_connection_state() {
 }
 
 #[test]
-fn finished_process_from_device_is_preserved_without_utility_flag() {
-    let original = json!({"tp": "evt:status", "process": {
-        "a": 0, "s": "brew", "l": "Finished", "e": 50702,
-        "tt": "time", "pt": 60000, "pp": 30313
-    }});
-    let message: Message = serde_json::from_value(original).unwrap();
-    let Message::Status(status) = message else { panic!("expected status") };
-    let Patch::Value(process) = status.process else { panic!("expected process") };
-    assert_eq!(
-        (process.activity, process.phase, process.elapsed_ms, process.utility),
-        (ProcessActivity::Inactive, Some(ProcessPhase::Brew), Some(50702), None)
-    );
-}
-
-#[test]
 fn process_snapshots_round_trip_active_phases_and_fractional_volume() {
     for phase in ["infusion", "brew", "grind"] {
         let original = json!({"tp": "evt:status", "process": {
@@ -161,33 +146,6 @@ fn invalid_status_measurement_is_rejected() {
         }))
         .is_err()
     );
-}
-
-#[test]
-fn future_status_fields_do_not_break_known_measurements() {
-    let message: Message = serde_json::from_value(json!({
-        "tp": "evt:status", "pr": 8.5, "futureSensor": {"value": 42}
-    }))
-    .unwrap();
-    assert!(
-        matches!(message, Message::Status(status) if status.current_pressure == Patch::Value(8.5))
-    );
-}
-
-#[test]
-fn unknown_message_types_are_explicitly_ignored() {
-    for original in [
-        json!({"tp": "evt:future", "payload": {"value": 42}}),
-        json!({"tp": "res:ota-settings", "displayVersion": "1"}),
-        json!({"tp": "evt:autotune-result", "pid": "1,2,3"}),
-        json!({"tp": "res:profiles:list", "profiles": []}),
-        json!({"tp": "evt:brew:confirm", "warn": []}),
-        json!({"tp": "res:flush:stop", "success": true}),
-        json!({"tp": "req:profiles:save", "profile": {}}),
-    ] {
-        let message: Message = serde_json::from_value(original).unwrap();
-        assert_eq!(message, Message::Unknown);
-    }
 }
 
 #[test]

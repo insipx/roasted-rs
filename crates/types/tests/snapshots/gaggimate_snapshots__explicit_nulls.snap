@@ -1,0 +1,35 @@
+---
+source: crates/types/tests/gaggimate_snapshots.rs
+expression: message
+---
+Status(
+    Status {
+        process: Null,
+        current_temperature: Absent,
+        target_temperature: Absent,
+        current_pressure: Absent,
+        current_flow: Absent,
+        current_weight: Null,
+        bluetooth_weight: Null,
+        scale_connected: Null,
+        system_state: Value(
+            SystemState {
+                phase: Null,
+                message: Value(
+                    "",
+                ),
+                error_code: Value(
+                    0,
+                ),
+            },
+        ),
+        warnings: Value(
+            [],
+        ),
+        target_pressure: Absent,
+        machine_mode: Absent,
+        profile_label: Absent,
+        pressure_capable: Absent,
+        dimming_capable: Absent,
+    },
+)

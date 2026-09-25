@@ -1,0 +1,12 @@
+{
+  "tp": "evt:status",
+  "m": 1,
+  "p": "Adaptive v2",
+  "ct": 92.152,
+  "pr": 8.549,
+  "fl": 3.3,
+  "process": {
+    "a": 1, "s": "brew", "l": "Extraction", "e": 20900,
+    "tt": "volumetric", "pt": 38, "pp": 0.8
+  }
+}

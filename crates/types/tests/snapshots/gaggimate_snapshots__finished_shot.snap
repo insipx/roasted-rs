@@ -1,0 +1,54 @@
+---
+source: crates/types/tests/gaggimate_snapshots.rs
+expression: message
+---
+Status(
+    Status {
+        process: Value(
+            ProcessStatus {
+                activity: Inactive,
+                phase: Some(
+                    Brew,
+                ),
+                label: Some(
+                    "Finished",
+                ),
+                elapsed_ms: Some(
+                    56215,
+                ),
+                utility: None,
+                target_type: Some(
+                    Volumetric,
+                ),
+                phase_target: Some(
+                    38.0,
+                ),
+                phase_progress: Some(
+                    37.5,
+                ),
+            },
+        ),
+        current_temperature: Value(
+            87.642,
+        ),
+        target_temperature: Absent,
+        current_pressure: Value(
+            8.249,
+        ),
+        current_flow: Value(
+            2.252,
+        ),
+        current_weight: Absent,
+        bluetooth_weight: Absent,
+        scale_connected: Absent,
+        system_state: Absent,
+        warnings: Absent,
+        target_pressure: Absent,
+        machine_mode: Value(
+            Brew,
+        ),
+        profile_label: Absent,
+        pressure_capable: Absent,
+        dimming_capable: Absent,
+    },
+)

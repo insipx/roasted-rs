@@ -1,0 +1,47 @@
+---
+source: crates/types/tests/gaggimate_snapshots.rs
+expression: message
+---
+Status(
+    Status {
+        process: Absent,
+        current_temperature: Value(
+            58.993,
+        ),
+        target_temperature: Value(
+            0.0,
+        ),
+        current_pressure: Value(
+            0.144,
+        ),
+        current_flow: Value(
+            0.0,
+        ),
+        current_weight: Value(
+            0.0,
+        ),
+        bluetooth_weight: Value(
+            0.0,
+        ),
+        scale_connected: Value(
+            false,
+        ),
+        system_state: Absent,
+        warnings: Absent,
+        target_pressure: Value(
+            0.0,
+        ),
+        machine_mode: Value(
+            Standby,
+        ),
+        profile_label: Value(
+            "Adaptive v2",
+        ),
+        pressure_capable: Value(
+            true,
+        ),
+        dimming_capable: Value(
+            true,
+        ),
+    },
+)
