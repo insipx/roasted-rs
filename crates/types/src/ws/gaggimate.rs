@@ -19,6 +19,8 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
+use crate::daemon::Merge;
+
 /// A field in a partial status update.
 ///
 /// Use `#[serde(default, skip_serializing_if = "Patch::is_absent")]` on fields.
@@ -34,10 +36,38 @@ pub enum Patch<T> {
     Value(T),
 }
 
+impl<T: Default> Merge<Patch<T>> for T {
+    fn merge(&mut self, other: Patch<T>) {
+        match other {
+            Patch::Null => {
+                *self = Default::default();
+            }
+            Patch::Value(t) => {
+                *self = t;
+            }
+            Patch::Absent => {
+                return;
+            }
+        }
+    }
+}
+
 impl<T> Patch<T> {
     /// Whether this field was omitted from the update.
     pub fn is_absent(&self) -> bool {
         matches!(self, Self::Absent)
+    }
+
+    /// Map `Patch` from `T` to `U`
+    pub fn map<F, U>(self, f: F) -> Patch<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        match self {
+            Patch::Absent => Patch::Absent,
+            Patch::Null => Patch::Null,
+            Patch::Value(t) => Patch::Value(f(t)),
+        }
     }
 }
 
@@ -125,10 +155,11 @@ pub struct Status {
 }
 
 /// Operating modes from the firmware's `src/display/core/constants.h`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Default)]
 #[repr(u8)]
 pub enum MachineMode {
     /// Machine on standby.
+    #[default]
     Standby = 0,
     /// Brewing mode, including idle time between shots.
     Brew = 1,
@@ -145,7 +176,7 @@ pub enum MachineMode {
 /// Only activity is emitted for processes other than brewing and grinding.
 /// A snapshot replaces the previous process object; missing details must not
 /// inherit a previous brew's phase or elapsed time.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct ProcessStatus {
     /// Controller activity, encoded as integer 0 or 1 rather than a JSON boolean.
     #[serde(rename = "a")]
@@ -174,10 +205,11 @@ pub struct ProcessStatus {
 }
 
 /// Numeric controller activity reported within a process snapshot.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Default)]
 #[repr(u8)]
 pub enum ProcessActivity {
     /// Controller is inactive; a finished process may still be reported.
+    #[default]
     Inactive = 0,
     /// Controller is active.
     Active = 1,
@@ -220,12 +252,13 @@ pub struct SystemState {
 }
 
 /// Documented display system phases.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum SystemPhase {
     /// Starting.
     Starting,
     /// Waiting.
+    #[default]
     Waiting,
     /// Ready.
     Ready,
