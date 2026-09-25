@@ -1,9 +1,12 @@
 use color_eyre::eyre::Result;
-use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
+use futures::stream::StreamExt;
+use tracing::Level;
+use tracing_subscriber::{filter::Targets, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::args::Args;
+use crate::{args::Args, listeners::gaggimate::GaggimateStream};
 
 mod args;
+mod listeners;
 
 #[tokio::main(flavor = "local")]
 async fn main() -> Result<()> {
@@ -18,9 +21,22 @@ async fn main() -> Result<()> {
         tracing_subscriber::registry().with(layer).init();
         tokio::spawn(task);
     } else {
-        tracing_subscriber::registry().with(fmt::layer()).init();
+        tracing_subscriber::registry()
+            .with(
+                Targets::new()
+                    .with_default(Level::INFO)
+                    .with_target(env!("CARGO_PKG_NAME"), Level::TRACE),
+            )
+            .with(fmt::layer().compact().with_file(false))
+            .init();
     }
 
-    println!("Hello, world! {}", gaggimate);
+    let mut s = GaggimateStream::connect(&gaggimate).await?;
+    while let Some(ev) = s.next().await {
+        match ev {
+            Ok(ev) => println!("{:#?}", ev),
+            Err(e) => eprintln!("{:#?}", e),
+        }
+    }
     Ok(())
 }
