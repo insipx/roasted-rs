@@ -2,14 +2,14 @@ flowchart TB
     INGEST["ingest<br/>GaggiMate WebSocket<br/>Reconnect and buffer samples"]
     SHOT["shot<br/>Detect end, settle and filter flushes<br/>Compute features and rules"]
     VOICE["voice<br/>Ask, listen up to 1 minute, speak<br/>Warp connection and session control"]
-    SPEECH["speech<br/>whisper.cpp transcription<br/>Piper synthesis"]
+    SPEECH["speech<br/>Vosk streaming transcription<br/>Detect end of reply · Piper synthesis"]
     COACH["coach<br/>Features, taste and last 5 shots<br/>Model request and JSON validation"]
     STORE[("store · rusqlite<br/>Samples, features and notes<br/>Exact prompts and verdicts")]
 
     INGEST -->|"Samples and machine state"| SHOT
     SHOT -->|"Shot ready"| VOICE
-    VOICE <-->|"Audio and text"| SPEECH
-    VOICE -->|"Taste notes"| COACH
+    VOICE <-->|"Streaming audio and text"| SPEECH
+    VOICE -->|"Final taste notes"| COACH
     COACH -->|"Advice"| VOICE
     SHOT -->|"Samples, features and rules"| STORE
     COACH <-->|"Persisted context and results"| STORE

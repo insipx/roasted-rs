@@ -3,16 +3,16 @@ flowchart TB
 
     subgraph HOMELAB["Homelab · k3s"]
         SHOT["Read telemetry<br/>Settle shot, compute features and rules"]
-        VOICE["Say: How's the shot?<br/>Listen for up to 1 minute"]
+        VOICE["Say: How's the shot?<br/>Vosk listens for up to 1 minute<br/>Piper speaks the advice"]
         COACH["Combine shot data, taste and history<br/>Generate one change to make"]
         STORE[("SQLite<br/>Shots, notes and history")]
         SHOT -->|"Shot settled; machine idle"| VOICE
-        VOICE -->|"Transcribed reply"| COACH
+        VOICE -->|"Reply ends · final transcript"| COACH
         COACH -->|"Validated advice to speak"| VOICE
         SHOT -->|"Save shot"| STORE
         COACH <-->|"Context and verdicts"| STORE
     end
 
     MACHINE -->|"Read-only WebSocket"| SHOT
-    VOICE <-->|"WebSocket · commands and audio"| DEVICE["ESP32-S3 audio board<br/>Play speech and capture your reply"]
+    VOICE <-->|"WebSocket · commands and audio"| DEVICE["ESP32-S3 audio board<br/>Play speech, then stream your reply"]
     COACH <-->|"HTTP · structured JSON"| MODEL["LAN model server<br/>llama.cpp or Ollama"]
