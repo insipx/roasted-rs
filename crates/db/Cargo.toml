@@ -1,0 +1,8 @@
+[package]
+name = "roasted-db"
+version = "0.1.0"
+edition = "2024"
+description = "roasted-rs database definitions"
+
+[dependencies]
+diesel.workspace = true

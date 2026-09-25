@@ -3,10 +3,10 @@ use std::{
     task::{Context, Poll, ready},
 };
 
-use color_eyre::eyre::{Report, Result};
+use color_eyre::eyre::Result;
 use futures::{Stream, TryStream};
 use pin_project_lite::pin_project;
-use roasted_types::gaggimate::Message as GmMessage;
+use roasted_types::ws::gaggimate::Message as GmMessage;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream, connect_async,

@@ -75,7 +75,7 @@ pub enum Message {
 /// Partial telemetry/state frame, including firmware process telemetry.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Status {
-    /// Current or last process; absent retains it, null clears it.
+    /// Current or last process.
     #[serde(default, skip_serializing_if = "Patch::is_absent")]
     pub process: Patch<ProcessStatus>,
     /// Current temperature.

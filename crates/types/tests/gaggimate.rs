@@ -1,4 +1,4 @@
-use roasted_types::gaggimate::{
+use roasted_types::ws::gaggimate::{
     MachineMode, Message, Patch, ProcessActivity, Status, WarningLevel,
 };
 use serde_json::json;

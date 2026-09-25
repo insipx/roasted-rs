@@ -13,11 +13,11 @@ let
       mkShell,
       cargo-generate,
       local,
-      capnproto,
+      diesel-cli,
     }:
 
     let
-      inherit (stdenv) isDarwin;
+      inherit (stdenv.hostPlatform) isDarwin;
       rust-toolchain = fenix.default.toolchain;
     in
     mkShell {
@@ -30,11 +30,17 @@ let
         pkgsCross.avr.buildPackages.gcc
         cargo-generate
         local.cargo-ravedude
-        capnproto
+        diesel-cli
       ]
       ++ lib.optionals isDarwin [
         darwin.cctools
       ];
+      shellHook = ''
+        export TMP_DIR="$(mktemp -d /tmp/nix-shell-XXXXXX)"
+        mkdir $TMP_DIR/sqlite
+        export DATABASE_URL="$TMP_DIR/sqlite/roasted.db";
+        echo "temporary diesel database directory at $DATABASE_URL"
+      '';
     };
 in
 {

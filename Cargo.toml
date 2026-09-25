@@ -4,6 +4,10 @@ members = ["crates/*"]
 
 [workspace.dependencies]
 color-eyre = "0.6"
+diesel = { version = "2.3", features = [
+  "sqlite",
+  "returning_clauses_for_sqlite_3_35",
+] }
 futures = "0.3"
 insta = "1.48"
 lexopt = "0.3.2"
