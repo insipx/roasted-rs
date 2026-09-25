@@ -5,4 +5,5 @@ edition = "2024"
 
 [dependencies]
 tokio.workspace = true
-color_eyre.workspace = true
+color-eyre.workspace = true
+tokio-tungstenite.workspace = true
