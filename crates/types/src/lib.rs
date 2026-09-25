@@ -3,3 +3,5 @@
 #![deny(missing_docs)]
 
 pub mod gaggimate;
+
+pub mod daemon;

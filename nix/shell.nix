@@ -18,11 +18,7 @@ let
 
     let
       inherit (stdenv) isDarwin;
-      rust-toolchain = fenix.default.withComponents [
-        "rustc"
-        "cargo"
-      ];
-
+      rust-toolchain = fenix.default.toolchain;
     in
     mkShell {
       nativeBuildInputs = [ pkg-config ];
