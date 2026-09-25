@@ -1,4 +1,4 @@
-//! Shared types for the roasted-rs daemon server
+//! Shared types/merges into generated WebSocket types for the roasted-rs daemon server
 
 use crate::ws::gaggimate::{
     MachineMode, ProcessStatus, Status, SystemPhase, SystemState, WarningState,
@@ -9,27 +9,27 @@ use crate::ws::gaggimate::{
 pub struct GaggimateState {
     /// Current or last process
     pub process: ProcessStatus,
-    /// Current temperature.
+    /// Current temperature, in Celsius
     pub current_temperature: f64,
-    /// Target temperature.
+    /// Target temperature, in Celsius.
     pub target_temperature: f64,
-    /// Current pressure.
+    /// Current pressure, in Bar.
     pub current_pressure: f64,
-    /// Current flow.
+    /// Current flow, in grams per second.
     pub current_flow: f64,
-    /// Current scale weight in grams; firmware reports zero when disconnected.
+    /// Current scale weight in grams. firmware reports zero when disconnected.
     /// Check `scale_connected` before interpreting this as a measurement.
     pub current_weight: f64,
-    /// Bluetooth scale weight in grams; currently mirrors `current_weight`.
+    /// Bluetooth scale weight in grams. currently mirrors `current_weight`.
     /// Negative readings are possible after removing a tared cup.
     pub bluetooth_weight: f64,
-    /// Whether the Bluetooth scale is connected; absent retains prior state.
+    /// Whether the Bluetooth scale is connected. absent retains prior state.
     pub scale_connected: bool,
     /// Display system state.
     pub system_state: SystemState,
     /// Machine warnings; an empty list is a real update.
     pub warnings: Vec<WarningState>,
-    /// Target pressure.
+    /// Target pressure in Bar.
     pub target_pressure: f64,
     /// Selected operating mode; brew mode does not imply an active shot.
     pub machine_mode: MachineMode,
@@ -59,6 +59,15 @@ pub struct GaggimateSystemState {
 pub trait Merge<T> {
     /// Conduct the merge, mutating `self`
     fn merge(&mut self, other: T);
+}
+
+impl<T, U> Merge<Box<T>> for U
+where
+    U: Merge<T>,
+{
+    fn merge(&mut self, other: Box<T>) {
+        self.merge(*other)
+    }
 }
 
 impl Merge<Status> for GaggimateState {

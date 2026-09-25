@@ -4,9 +4,12 @@ use std::{
 };
 
 use color_eyre::eyre::Result;
-use futures::{Stream, TryStream};
+use futures::{Stream, TryStream, TryStreamExt};
 use pin_project_lite::pin_project;
-use roasted_types::ws::gaggimate::Message as GmMessage;
+use roasted_types::{
+    daemon::{GaggimateState, Merge},
+    ws::gaggimate::Message as GmMessage,
+};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream, connect_async,
@@ -16,16 +19,18 @@ use url::Url;
 
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
-pub struct Listener {
-    url: Url,
-    stream: GaggimateStream<WsStream>,
-}
-
-impl Listener {
-    /// Connect to the Gaggimate Websockets Stream
-    pub async fn connect(url: Url) -> Result<Self> {
-        Ok(Self { stream: GaggimateStream::connect(&url).await?, url })
+// maybe should add a backoff harness for network stuff
+pub async fn listener(url: Url) -> Result<()> {
+    let mut stream = GaggimateStream::connect(&url).await?;
+    let mut current_state = GaggimateState::default();
+    while let Some(item) = stream.try_next().await? {
+        match item {
+            GmMessage::Status(s) => current_state.merge(s),
+            GmMessage::Unknown => eprintln!("encountered unknown message type, continuing..."),
+        }
+        tracing::info!("current_state: {:#?}", current_state);
     }
+    Ok(())
 }
 
 // pub async fn listener() -> Result<()> {
