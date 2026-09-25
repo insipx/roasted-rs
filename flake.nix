@@ -11,6 +11,7 @@
         nixpkgs.follows = "nixpkgs";
       };
     };
+    crane.url = "github:ipetkov/crane";
     import-tree.url = "github:vic/import-tree";
     treefmt-nix.url = "github:numtide/treefmt-nix";
   };
