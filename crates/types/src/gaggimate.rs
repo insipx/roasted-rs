@@ -15,9 +15,10 @@
 //! # Ok::<(), serde_json::Error>(())
 //! ```
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use std::collections::BTreeMap;
 
 /// A field in a partial status update.
 ///

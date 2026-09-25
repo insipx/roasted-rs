@@ -8,10 +8,7 @@ fn status_preserves_absent_null_and_zero() {
     let Message::Status(status) = message else {
         panic!("expected status");
     };
-    assert_eq!(
-        (status.ct, status.tt, status.pr),
-        (Patch::Null, Patch::Absent, Patch::Value(0.0))
-    );
+    assert_eq!((status.ct, status.tt, status.pr), (Patch::Null, Patch::Absent, Patch::Value(0.0)));
 }
 
 #[test]
@@ -68,10 +65,7 @@ fn missing_required_fields_are_rejected() {
         json!({"tp": "req:profiles:reorder"}),
         json!({"tp": "evt:brew:confirm"}),
     ] {
-        assert!(
-            serde_json::from_value::<Message>(value.clone()).is_err(),
-            "{value}"
-        );
+        assert!(serde_json::from_value::<Message>(value.clone()).is_err(), "{value}");
     }
 }
 

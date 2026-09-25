@@ -5,19 +5,21 @@
   config.perSystem =
     { pkgs, ... }:
     let
-      rustfmt = pkgs.fenix.minimal.rustfmt;
+      rustfmt = pkgs.fenix.default.rustfmt;
     in
     {
       treefmt = {
         flakeFormatter = true;
         flakeCheck = true;
         projectRootFile = "flake.nix";
-        nixfmt.enable = true;
-        rustfmt = {
-          enable = true;
-          package = rustfmt;
+        programs = {
+          nixfmt.enable = true;
+          rustfmt = {
+            enable = true;
+            package = rustfmt;
+          };
+          taplo.enable = true;
         };
-        taplo.enable = true;
       };
     };
 }
