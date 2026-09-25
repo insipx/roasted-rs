@@ -1,5 +1,6 @@
 //! CLI Args for the daemon
 
+use color_eyre::eyre::{Result, WrapErr, bail};
 use url::Url;
 
 #[derive(Clone)]
@@ -16,7 +17,7 @@ pub struct Args {
 }
 
 /// Parse the static website directory from the command line
-pub fn parse_args() -> Result<Args, lexopt::Error> {
+pub fn parse_args() -> Result<Args> {
     use lexopt::prelude::*;
 
     let mut gaggimate = None;
@@ -24,25 +25,28 @@ pub fn parse_args() -> Result<Args, lexopt::Error> {
     let mut udp_port = 5005;
     let mut loki = None;
     let mut parser = lexopt::Parser::from_env();
+    let err = |name| format!("failed to parse argument `{name}`");
     while let Some(arg) = parser.next()? {
         match arg {
             Short('g') | Long("gaggimate") => {
-                gaggimate = Some(parser.value()?.parse()?);
+                gaggimate = Some(parser.value()?.parse().wrap_err(err("gaggimate"))?);
             }
             Long("loki") => {
-                loki = Some(parser.value()?.parse()?);
+                loki = Some(parser.value()?.parse().wrap_err(err("loki"))?);
             }
             Long("ws_port") => {
-                ws_port = parser.value()?.parse()?;
+                ws_port = parser.value()?.parse().wrap_err(err("ws_port"))?;
             }
             Long("udp_port") => {
-                udp_port = parser.value()?.parse()?;
+                udp_port = parser.value()?.parse().wrap_err(err("udp_port"))?;
             }
-            Long("help") => {
-                println!("Usage: srv [-d|--directory=STRING --loki=URL --port=NUM]");
+            Short('h') | Long("help") => {
+                println!(
+                    "Usage: roasted-daemon [-g|--gaggimate=STRING --ws-port=PORT --udp_port=PORT --loki=URL]"
+                );
                 std::process::exit(0);
             }
-            _ => return Err(arg.unexpected()),
+            _ => bail!(arg.unexpected()),
         }
     }
 

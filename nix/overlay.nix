@@ -23,7 +23,7 @@
         p: targets:
         p.fenix.combine [
           (toolchain p)
-          (lib.forEach targets (target: p.fenix.targets."${target}".minimal.toolchain.rust-std))
+          (lib.forEach targets (target: p.fenix.targets."${target}".minimal.rust-std))
         ];
       rust-toolchain = target: p: mkToolchain p [ target ];
       # Make a toolchain for a single target with the x-compile pkgs

@@ -7,7 +7,7 @@
   local,
 }:
 let
-  rust = mkToolchainFor stdenv.hostPlaform.rust.rustcTarget;
+  rust = mkToolchainFor stdenv.hostPlatform.rust.rustcTarget;
   commonArgs =
     lib.optionalAttrs stdenv.hostPlatform.isMusl {
       RUSTFLAGS = "-C target-feature=+crt-static";
@@ -24,7 +24,7 @@ let
 in
 rust.buildPackage {
   pname = "roasted-daemon";
-  src = local.filesets.forCrate ./crates/daemon;
+  src = local.filesets.forCrate /crates/daemon;
   version = "0.1.0";
   inherit cargoArtifacts;
   cargoExtraArgs = "-p roasted-daemon";

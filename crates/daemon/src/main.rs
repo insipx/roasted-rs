@@ -1,6 +1,5 @@
 use color_eyre::eyre::Result;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
-use url::Url;
 
 use crate::args::Args;
 
@@ -8,6 +7,7 @@ mod args;
 
 #[tokio::main(flavor = "local")]
 async fn main() -> Result<()> {
+    color_eyre::install()?;
     let Args { gaggimate, ws_port, udp_port, loki } = args::parse_args()?;
 
     if let Some(loki_url) = loki {
@@ -21,6 +21,6 @@ async fn main() -> Result<()> {
         tracing_subscriber::registry().with(fmt::layer()).init();
     }
 
-    println!("Hello, world!");
+    println!("Hello, world! {}", gaggimate);
     Ok(())
 }
