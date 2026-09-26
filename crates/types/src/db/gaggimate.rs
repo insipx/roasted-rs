@@ -1,12 +1,17 @@
 use diesel::{
+    Insertable,
     deserialize::{self, FromSql},
     serialize::{self, IsNull, Output, ToSql},
     sql_types::{BigInt, Integer, Text},
     sqlite::{Sqlite, SqliteValue},
 };
 
-use crate::ws::gaggimate::{
-    ElapsedMs, MachineMode, ProcessActivity, ProcessPhase, ProcessTarget, SystemPhase, UtilityFlag,
+use crate::{
+    daemon::GaggimateState,
+    ws::gaggimate::{
+        ElapsedMs, MachineMode, ProcessActivity, ProcessPhase, ProcessTarget, SystemPhase,
+        UtilityFlag,
+    },
 };
 
 // Keep the database spelling independent of the firmware's Serde representation.
@@ -93,5 +98,16 @@ impl FromSql<Integer, Sqlite> for UtilityFlag {
         // Read the full SQLite integer before checking the u8 range.
         let value = <i64 as FromSql<BigInt, Sqlite>>::from_sql(value)?;
         Ok(Self(u8::try_from(value)?))
+    }
+}
+
+impl<'a, T> Insertable<T> for &'_ &'a GaggimateState
+where
+    &'a GaggimateState: Insertable<T>,
+{
+    type Values = <&'a GaggimateState as Insertable<T>>::Values;
+
+    fn values(self) -> Self::Values {
+        <&'a GaggimateState as Insertable<T>>::values(*self)
     }
 }
