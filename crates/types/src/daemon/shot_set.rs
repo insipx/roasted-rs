@@ -11,4 +11,9 @@ impl ShotSet {
     pub fn new(frames: Vec<GaggimateState>) -> Self {
         Self { inner: frames }
     }
+
+    /// get the inner set
+    pub fn iter(&self) -> impl Iterator<Item = &GaggimateState> {
+        self.inner.iter()
+    }
 }

@@ -1,9 +1,10 @@
+use std::path::PathBuf;
+
 use color_eyre::eyre::Result;
-use futures::stream::StreamExt;
 use tracing::Level;
 use tracing_subscriber::{filter::Targets, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::{args::Args, listeners::gaggimate::GaggimateStream};
+use crate::args::Args;
 
 mod args;
 mod listeners;
@@ -31,13 +32,14 @@ async fn main() -> Result<()> {
             .with(fmt::layer().compact().with_file(false))
             .init();
     }
+    let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let handle =
+        tokio::task::spawn_local(server::ws::server(ws_port, gaggimate, PathBuf::from(db_url)));
 
-    let mut s = GaggimateStream::connect(&gaggimate).await?;
-    while let Some(ev) = s.next().await {
-        match ev {
-            Ok(ev) => println!("{:#?}", ev),
-            Err(e) => eprintln!("{:#?}", e),
-        }
-    }
+    tokio::try_join!(handle)?;
+    // let mut s = GaggimateListener::connect(&gaggimate).await?;
+    // while let Some(ev) = s.try_next().await? {
+    //     println!("{:#?}", ev);
+    // }
     Ok(())
 }

@@ -3,10 +3,12 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.dependencies]
+bon = "3.10"
 color-eyre = "0.6"
 diesel = { version = "2.3", features = [
   "sqlite",
   "returning_clauses_for_sqlite_3_35",
+  "uuid",
 ] }
 futures = "0.3"
 insta = "1.48"

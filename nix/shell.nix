@@ -14,6 +14,7 @@ let
       cargo-generate,
       local,
       diesel-cli,
+      sqlite,
     }:
 
     let
@@ -31,6 +32,7 @@ let
         cargo-generate
         local.cargo-ravedude
         diesel-cli
+        sqlite
       ]
       ++ lib.optionals isDarwin [
         darwin.cctools
