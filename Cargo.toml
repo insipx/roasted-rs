@@ -32,5 +32,6 @@ uuid = { version = "1.26", features = ["v7"] }
 warp = { version = "0.4", features = ["websocket", "server"] }
 
 # local dep
+roasted-db = { path = "crates/db" }
 roasted-db-schema = { path = "crates/db-schema" }
 roasted-types = { path = "crates/types" }

@@ -4,11 +4,11 @@ use std::{
 };
 
 use color_eyre::eyre::Result;
-use futures::{Stream, TryStream, TryStreamExt};
+use futures::{Stream, TryStream};
 use pin_project_lite::pin_project;
 use roasted_types::{
     daemon::{GaggimateState, Merge},
-    ws::gaggimate::Message as GmMessage,
+    ws::other::Message as GmMessage,
 };
 use tokio::net::TcpStream;
 use tokio_tungstenite::{
@@ -20,6 +20,11 @@ use uuid::Uuid;
 
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
+/// The accumulated state of a single shot pull
+pub struct ShotSet {
+    inner: Vec<GaggimateState>,
+}
+
 pin_project! {
     /// Listens to Gaggimate and records each shot under a unique ID.
     /// On shot completion, returns the UUID of the shot recorded in the database.
@@ -28,12 +33,13 @@ pin_project! {
         inner: GaggimateStream<WsStream>,
         current_state: GaggimateState,
         is_pulling_shot: bool,
+        frames: Vec<GaggimateState>
         // db: Db
     }
 }
 
 impl Stream for GaggimateListener {
-    type Item = Result<Uuid>;
+    type Item = Result<ShotSet>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
@@ -45,6 +51,7 @@ impl Stream for GaggimateListener {
                 GmMessage::Status(s) => this.current_state.merge(s),
                 GmMessage::Unknown => eprintln!("encountered unknown message type, continuing..."),
             }
+            if this.current_state.process.activity 
             // detect shot start + end
             // record in db
             // return ready with Uuid
