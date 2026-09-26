@@ -2,7 +2,7 @@
 
 use diesel::{IntoSql, connection::SimpleConnection, prelude::*, sql_types::*};
 use roasted_db_schema::schema::gaggimate_status_frames as frames;
-use roasted_types::{daemon::GaggimateState, ws::other::*};
+use roasted_types::{daemon::GaggimateState, ws::gaggimate::*};
 
 #[test]
 fn unsigned_sql_conversions_check_boundaries_and_preserve_null() {

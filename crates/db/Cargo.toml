@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+color-eyre.workspace = true
 diesel.workspace = true
-roasted-types.workspace = true
-uuid.workspace = true
+roasted-db-schema.workspace = true
+roasted-types = { workspace = true, features = ["diesel"] }

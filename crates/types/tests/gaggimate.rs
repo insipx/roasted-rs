@@ -1,4 +1,4 @@
-use roasted_types::ws::other::{
+use roasted_types::ws::gaggimate::{
     MachineMode, Message, Patch, ProcessActivity, Status, WarningLevel,
 };
 use serde_json::json;
@@ -163,7 +163,7 @@ fn warning_severity_uses_json_integers() {
 
 #[test]
 fn unsigned_domain_types_preserve_wire_ranges_and_deref() {
-    use roasted_types::ws::other::{ElapsedMs, UtilityFlag};
+    use roasted_types::ws::gaggimate::{ElapsedMs, UtilityFlag};
 
     let elapsed: ElapsedMs = serde_json::from_value(json!(u64::MAX)).unwrap();
     let utility: UtilityFlag = serde_json::from_value(json!(u8::MAX)).unwrap();

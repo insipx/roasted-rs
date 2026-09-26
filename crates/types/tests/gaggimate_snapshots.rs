@@ -1,4 +1,4 @@
-use roasted_types::ws::other::Message;
+use roasted_types::ws::gaggimate::Message;
 
 macro_rules! telemetry_snapshot {
     ($name:ident, $fixture:literal) => {
