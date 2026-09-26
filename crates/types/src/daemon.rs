@@ -1,13 +1,17 @@
 //! Shared types/merges into generated WebSocket types for the roasted-rs daemon server
 
 use crate::ws::gaggimate::{
-    MachineMode, ProcessStatus, Status, SystemPhase, SystemState, WarningState,
+    MachineMode, Patch, ProcessStatus, Status, SystemPhase, SystemState, WarningState,
 };
 
 /// State snapshot from Gaggimate
 #[derive(Default, Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "diesel", derive(diesel::Insertable))]
+#[cfg_attr(feature = "diesel", diesel(table_name = roasted_db_schema::schema::gaggimate_status_frames))]
+#[cfg_attr(feature = "diesel", diesel(check_for_backend(diesel::sqlite::Sqlite)))]
 pub struct GaggimateState {
     /// Current or last process
+    #[cfg_attr(feature = "diesel", diesel(embed))]
     pub process: ProcessStatus,
     /// Current temperature, in Celsius
     pub current_temperature: f64,
@@ -26,8 +30,11 @@ pub struct GaggimateState {
     /// Whether the Bluetooth scale is connected. absent retains prior state.
     pub scale_connected: bool,
     /// Display system state.
-    pub system_state: SystemState,
+    #[cfg_attr(feature = "diesel", diesel(embed))]
+    pub system_state: GaggimateSystemState,
+    // use a separate table
     /// Machine warnings; an empty list is a real update.
+    #[cfg_attr(feature = "diesel", diesel(skip_insertion))]
     pub warnings: Vec<WarningState>,
     /// Target pressure in Bar.
     pub target_pressure: f64,
@@ -44,8 +51,13 @@ pub struct GaggimateState {
 }
 
 /// State snapshot about the overall Gaggimate system.
+#[derive(Default, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "diesel", derive(diesel::Insertable))]
+#[cfg_attr(feature = "diesel", diesel(table_name = roasted_db_schema::schema::gaggimate_status_frames))]
+#[cfg_attr(feature = "diesel", diesel(check_for_backend(diesel::sqlite::Sqlite)))]
 pub struct GaggimateSystemState {
-    /// Current temperature.
+    ///  Current phase.
+    #[cfg_attr(feature = "diesel", diesel(column_name = "system_phase"))]
     pub phase: SystemPhase,
     /// Display message
     pub message: Option<String>,
@@ -61,12 +73,42 @@ pub trait Merge<T> {
     fn merge(&mut self, other: T);
 }
 
+/// Same as [`Merge`] but merges two different types.
+/// Cannot put on same trait because of the lack of specialization.
+pub trait MergeOther<T> {
+    /// Merge a value of another type into this state.
+    fn merge_other(&mut self, other: T);
+}
+
 impl<T, U> Merge<Box<T>> for U
 where
     U: Merge<T>,
 {
     fn merge(&mut self, other: Box<T>) {
         self.merge(*other)
+    }
+}
+
+impl<T, U> MergeOther<Patch<U>> for T
+where
+    T: Default + Merge<U>,
+{
+    fn merge_other(&mut self, patch: Patch<U>) {
+        match patch {
+            Patch::Null => *self = Self::default(),
+            Patch::Value(value) => self.merge(value),
+            Patch::Absent => {}
+        }
+    }
+}
+
+impl<T: Default> Merge<Patch<T>> for T {
+    fn merge(&mut self, other: Patch<T>) {
+        match other {
+            Patch::Null => *self = Default::default(),
+            Patch::Value(t) => *self = t,
+            Patch::Absent => {}
+        }
     }
 }
 
@@ -80,7 +122,7 @@ impl Merge<Status> for GaggimateState {
         self.current_weight.merge(other.current_weight);
         self.bluetooth_weight.merge(other.bluetooth_weight);
         self.scale_connected.merge(other.scale_connected);
-        self.system_state.merge(other.system_state);
+        self.system_state.merge_other(other.system_state);
         self.warnings.merge(other.warnings);
         self.target_pressure.merge(other.target_pressure);
         self.machine_mode.merge(other.machine_mode);

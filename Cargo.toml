@@ -28,6 +28,9 @@ tracing-loki = { version = "0.2", default-features = false, features = [
 ] }
 tracing-subscriber = "0.3"
 url = "2.5"
+uuid = { version = "1.26", features = ["v7"] }
+warp = { version = "0.4", features = ["websocket", "server"] }
 
 # local dep
+roasted-db-schema = { path = "crates/db-schema" }
 roasted-types = { path = "crates/types" }

@@ -1,0 +1,28 @@
+CREATE TABLE gaggimate_status_frames (
+  id                     INTEGER PRIMARY KEY,
+  -- A shot_id is a UUID v7
+  shot_id                BINARY NOT NULL CHECK(length(shot_id) = 16),
+  process_activity       TEXT CHECK(process_activity IN ('inactive', 'active')),
+  process_phase          TEXT CHECK(process_phase IN ('infusion', 'brew', 'grind')),
+  process_label          TEXT,
+  process_elapsed_ms     BIGINT,
+  process_utility        INTEGER,
+  process_target_type    TEXT CHECK(process_target_type IN ('time', 'volumetric')),
+  process_phase_target   DOUBLE,
+  process_phase_progress DOUBLE,
+  current_temperature    DOUBLE NOT NULL,
+  target_temperature     DOUBLE NOT NULL,
+  current_pressure       DOUBLE NOT NULL,
+  current_flow           DOUBLE NOT NULL,
+  current_weight         DOUBLE NOT NULL,
+  bluetooth_weight       DOUBLE NOT NULL,
+  scale_connected        BOOLEAN NOT NULL,
+  system_phase           TEXT CHECK(system_phase IN ('starting', 'waiting', 'ready', 'updating', 'autotuning', 'mismatch', 'error')) NOT NULL,
+  message                TEXT,
+  error_code             BIGINT,
+  target_pressure        DOUBLE NOT NULL,
+  machine_mode           TEXT CHECK(machine_mode IN ('standby', 'brew', 'steam', 'hot_water', 'grind')) NOT NULL,
+  profile_label          TEXT NOT NULL,
+  pressure_capable       BOOLEAN NOT NULL,
+  dimming_capable        BOOLEAN NOT NULL
+);

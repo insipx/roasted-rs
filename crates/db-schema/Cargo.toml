@@ -1,5 +1,5 @@
 [package]
-name = "roasted-db"
+name = "roasted-db-schema"
 version = "0.1.0"
 edition = "2024"
 description = "roasted-rs database definitions"

@@ -7,6 +7,7 @@ use crate::{args::Args, listeners::gaggimate::GaggimateStream};
 
 mod args;
 mod listeners;
+mod server;
 
 #[tokio::main(flavor = "local")]
 async fn main() -> Result<()> {

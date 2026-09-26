@@ -5,3 +5,6 @@
 pub mod ws;
 
 pub mod daemon;
+
+#[cfg(feature = "diesel")]
+mod db;

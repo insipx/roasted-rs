@@ -14,7 +14,9 @@ Status(
                     "Finished",
                 ),
                 elapsed_ms: Some(
-                    56215,
+                    ElapsedMs(
+                        56215,
+                    ),
                 ),
                 utility: None,
                 target_type: Some(

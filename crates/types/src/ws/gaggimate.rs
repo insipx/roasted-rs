@@ -7,7 +7,7 @@
 //!
 //!
 //! ```
-//! use roasted_types::gaggimate::{Message, Patch};
+//! use roasted_types::ws::gaggimate::{Message, Patch};
 //! let message: Message = serde_json::from_str(r#"{"tp":"evt:status","pr":8.5}"#)?;
 //! if let Message::Status(status) = message {
 //!     assert_eq!(status.current_pressure, Patch::Value(8.5));
@@ -18,8 +18,6 @@
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-
-use crate::daemon::Merge;
 
 /// A field in a partial status update.
 ///
@@ -34,22 +32,6 @@ pub enum Patch<T> {
     Null,
     /// Replace the previous value, including zero, false, or an empty collection.
     Value(T),
-}
-
-impl<T: Default> Merge<Patch<T>> for T {
-    fn merge(&mut self, other: Patch<T>) {
-        match other {
-            Patch::Null => {
-                *self = Default::default();
-            }
-            Patch::Value(t) => {
-                *self = t;
-            }
-            Patch::Absent => {
-                return;
-            }
-        }
-    }
 }
 
 impl<T> Patch<T> {
@@ -156,6 +138,8 @@ pub struct Status {
 
 /// Operating modes from the firmware's `src/display/core/constants.h`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Default)]
+#[cfg_attr(feature = "diesel", derive(diesel::AsExpression, diesel::FromSqlRow))]
+#[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Text))]
 #[repr(u8)]
 pub enum MachineMode {
     /// Machine on standby.
@@ -177,36 +161,103 @@ pub enum MachineMode {
 /// A snapshot replaces the previous process object; missing details must not
 /// inherit a previous brew's phase or elapsed time.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "diesel", derive(diesel::Insertable))]
+#[cfg_attr(feature = "diesel", diesel(table_name = roasted_db_schema::schema::gaggimate_status_frames))]
+#[cfg_attr(feature = "diesel", diesel(check_for_backend(diesel::sqlite::Sqlite)))]
 pub struct ProcessStatus {
     /// Controller activity, encoded as integer 0 or 1 rather than a JSON boolean.
     #[serde(rename = "a")]
+    #[cfg_attr(feature = "diesel", diesel(column_name = "process_activity"))]
     pub activity: ProcessActivity,
     /// Current phase category; infusion and brew belong to the same shot.
     #[serde(rename = "s", default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "diesel", diesel(column_name = "process_phase"))]
     pub phase: Option<ProcessPhase>,
     /// Display label; do not use this user-facing text for lifecycle detection.
     #[serde(rename = "l", default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "diesel", diesel(column_name = "process_label"))]
     pub label: Option<String>,
     /// Elapsed process time in milliseconds.
+    #[cfg_attr(feature = "diesel", diesel(column_name = "process_elapsed_ms"))]
     #[serde(rename = "e", default, skip_serializing_if = "Option::is_none")]
-    pub elapsed_ms: Option<u64>,
+    pub elapsed_ms: Option<ElapsedMs>,
     /// Utility profile flag (0 or 1); absent on older firmware and grind processes.
+    #[cfg_attr(feature = "diesel", diesel(column_name = "process_utility"))]
     #[serde(rename = "u", default, skip_serializing_if = "Option::is_none")]
-    pub utility: Option<u8>,
+    pub utility: Option<UtilityFlag>,
     /// Whether phase progress is measured by time or volume.
+    #[cfg_attr(feature = "diesel", diesel(column_name = "process_target_type"))]
     #[serde(rename = "tt", default, skip_serializing_if = "Option::is_none")]
     pub target_type: Option<ProcessTarget>,
     /// Phase target: milliseconds for time, volume for volumetric mode.
+    #[cfg_attr(feature = "diesel", diesel(column_name = "process_phase_target"))]
     #[serde(rename = "pt", default, skip_serializing_if = "Option::is_none")]
     pub phase_target: Option<f64>,
     /// Phase progress in the same units as the target.
+    #[cfg_attr(feature = "diesel", diesel(column_name = "process_phase_progress"))]
     #[serde(rename = "pp", default, skip_serializing_if = "Option::is_none")]
     pub phase_progress: Option<f64>,
+}
+
+/// Elapsed process time in milliseconds.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "diesel", derive(diesel::AsExpression, diesel::FromSqlRow))]
+#[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::BigInt))]
+pub struct ElapsedMs(pub u64);
+
+impl std::ops::Deref for ElapsedMs {
+    type Target = u64;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<u64> for ElapsedMs {
+    fn from(value: u64) -> Self {
+        Self(value)
+    }
+}
+
+impl From<ElapsedMs> for u64 {
+    fn from(value: ElapsedMs) -> Self {
+        value.0
+    }
+}
+
+/// Numeric utility profile flag reported by the firmware.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "diesel", derive(diesel::AsExpression, diesel::FromSqlRow))]
+#[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Integer))]
+pub struct UtilityFlag(pub u8);
+
+impl std::ops::Deref for UtilityFlag {
+    type Target = u8;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<u8> for UtilityFlag {
+    fn from(value: u8) -> Self {
+        Self(value)
+    }
+}
+
+impl From<UtilityFlag> for u8 {
+    fn from(value: UtilityFlag) -> Self {
+        value.0
+    }
 }
 
 /// Numeric controller activity reported within a process snapshot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Default)]
 #[repr(u8)]
+#[cfg_attr(feature = "diesel", derive(diesel::AsExpression, diesel::FromSqlRow))]
+#[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Text))]
 pub enum ProcessActivity {
     /// Controller is inactive; a finished process may still be reported.
     #[default]
@@ -218,6 +269,8 @@ pub enum ProcessActivity {
 /// Live process phase, distinct from the profile's phase type names.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "diesel", derive(diesel::AsExpression, diesel::FromSqlRow))]
+#[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Text))]
 pub enum ProcessPhase {
     /// Puck saturation before the main extraction.
     Infusion,
@@ -230,6 +283,8 @@ pub enum ProcessPhase {
 /// Measurement used for live process progress and target values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "diesel", derive(diesel::AsExpression, diesel::FromSqlRow))]
+#[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Text))]
 pub enum ProcessTarget {
     /// Elapsed milliseconds.
     Time,
@@ -254,6 +309,8 @@ pub struct SystemState {
 /// Documented display system phases.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "diesel", derive(diesel::AsExpression, diesel::FromSqlRow))]
+#[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Text))]
 pub enum SystemPhase {
     /// Starting.
     Starting,

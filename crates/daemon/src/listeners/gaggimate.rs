@@ -16,30 +16,41 @@ use tokio_tungstenite::{
     tungstenite::{Message as WsMessage, error::Error as TungError},
 };
 use url::Url;
+use uuid::Uuid;
 
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
-// maybe should add a backoff harness for network stuff
-pub async fn listener(url: Url) -> Result<()> {
-    let mut stream = GaggimateStream::connect(&url).await?;
-    let mut current_state = GaggimateState::default();
-    while let Some(item) = stream.try_next().await? {
-        match item {
-            GmMessage::Status(s) => current_state.merge(s),
-            GmMessage::Unknown => eprintln!("encountered unknown message type, continuing..."),
-        }
-        tracing::info!("current_state: {:#?}", current_state);
+pin_project! {
+    /// Listens to Gaggimate and records each shot under a unique ID.
+    /// On shot completion, returns the UUID of the shot recorded in the database.
+    pub struct GaggimateListener {
+        #[pin]
+        inner: GaggimateStream<WsStream>,
+        current_state: GaggimateState,
+        is_pulling_shot: bool,
+        // db: Db
     }
-    Ok(())
 }
 
-// pub async fn listener() -> Result<()> {
-//     while let Some(Ok(ev)) = read.next().await {
-//         let msg = decode_message(ev)?;
-//         println!("{:#?}", msg);
-//     }
-//     Ok(())
-// }
+impl Stream for GaggimateListener {
+    type Item = Result<Uuid>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let mut this = self.project();
+        loop {
+            let Some(item) = ready!(this.inner.as_mut().try_poll_next(cx)).transpose()? else {
+                return Poll::Ready(None);
+            };
+            match item {
+                GmMessage::Status(s) => this.current_state.merge(s),
+                GmMessage::Unknown => eprintln!("encountered unknown message type, continuing..."),
+            }
+            // detect shot start + end
+            // record in db
+            // return ready with Uuid
+        }
+    }
+}
 
 pin_project! {
     pub struct GaggimateStream<S> {
@@ -70,11 +81,9 @@ where
         use WsMessage::*;
         let mut this = self.project();
         loop {
-            let item = ready!(this.inner.as_mut().try_poll_next(cx));
-            let Some(item) = item else {
+            let Some(item) = ready!(this.inner.as_mut().try_poll_next(cx)).transpose()? else {
                 return Poll::Ready(None);
             };
-            let Ok(item) = item else { return Poll::Ready(Some(Err(item.unwrap_err().into()))) };
 
             match item {
                 // let the underlying tokio-tungstenite stream handle these

@@ -14,7 +14,9 @@ Status(
                     "Prefill",
                 ),
                 elapsed_ms: Some(
-                    338,
+                    ElapsedMs(
+                        338,
+                    ),
                 ),
                 utility: None,
                 target_type: Some(

@@ -101,7 +101,7 @@ fn process_utility_flag_preserves_unknown_false_and_true() {
         }
         let status: Status = serde_json::from_value(original).unwrap();
         let Patch::Value(process) = status.process else { panic!("expected process") };
-        assert_eq!(process.utility, utility);
+        assert_eq!(process.utility.map(|value| *value), utility);
     }
 }
 
@@ -159,4 +159,21 @@ fn warning_severity_uses_json_integers() {
     assert_eq!(warning, WarningLevel::Error);
     assert!(serde_json::from_str::<WarningLevel>("3").is_err());
     assert!(serde_json::from_str::<WarningLevel>("\"error\"").is_err());
+}
+
+#[test]
+fn unsigned_domain_types_preserve_wire_ranges_and_deref() {
+    use roasted_types::ws::gaggimate::{ElapsedMs, UtilityFlag};
+
+    let elapsed: ElapsedMs = serde_json::from_value(json!(u64::MAX)).unwrap();
+    let utility: UtilityFlag = serde_json::from_value(json!(u8::MAX)).unwrap();
+    let elapsed_ref: &u64 = &elapsed;
+    let utility_ref: &u8 = &utility;
+    assert_eq!(*elapsed_ref, u64::MAX);
+    assert_eq!(*utility_ref, u8::MAX);
+    assert_eq!(serde_json::to_value(elapsed).unwrap(), json!(u64::MAX));
+    assert_eq!(serde_json::to_value(utility).unwrap(), json!(u8::MAX));
+    assert!(serde_json::from_value::<ElapsedMs>(json!(-1)).is_err());
+    assert!(serde_json::from_value::<UtilityFlag>(json!(-1)).is_err());
+    assert!(serde_json::from_value::<UtilityFlag>(json!(256)).is_err());
 }

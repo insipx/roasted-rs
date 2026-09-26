@@ -14,7 +14,9 @@ Status(
                     "Extraction",
                 ),
                 elapsed_ms: Some(
-                    20900,
+                    ElapsedMs(
+                        20900,
+                    ),
                 ),
                 utility: None,
                 target_type: Some(
