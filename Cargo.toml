@@ -5,6 +5,7 @@ members = ["crates/*"]
 [workspace.dependencies]
 bon = "3.10"
 color-eyre = "0.6"
+dialoguer = "0.12"
 diesel = { version = "2.3", features = [
   "sqlite",
   "returning_clauses_for_sqlite_3_35",
@@ -18,6 +19,7 @@ postcard = "1.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_repr = "0.1"
+serialport = "4.10"
 tokio = { version = "1.53.1", features = ["macros", "rt"] }
 tokio-tungstenite = { version = "0.30", features = [
   "rustls-tls-native-roots",
@@ -37,3 +39,11 @@ warp = { version = "0.4", features = ["websocket", "server"] }
 roasted-db = { path = "crates/db" }
 roasted-db-schema = { path = "crates/db-schema" }
 roasted-types = { path = "crates/types" }
+
+# profile for zippy/esp32 dev
+[profile.firmware]
+inherits = "release"
+opt-level = "s"
+debug = 2
+codegen-units = 1
+panic = "abort"

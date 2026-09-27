@@ -20,7 +20,7 @@
       };
       xtensaToolchain = pkgs.fenix.combine [
         xtensaStd
-        bootstrapCrane
+        bootstrapToolchain
       ];
     in
     {

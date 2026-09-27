@@ -5,3 +5,16 @@ edition = "2024"
 description = "ESP32 Audio/Microphone to roast your espresso"
 
 [dependencies]
+embassy-executor = "0.10.0"
+embassy-time = "0.5.0"
+esp-hal = { version = "~1.2.2", features = ["esp32s3", "unstable"] }
+esp-rtos = { version = "0.4.0", features = ["esp32s3", "embassy"] }
+esp-bootloader-esp-idf = { version = "0.6.0", features = ["esp32s3"] }
+esp-backtrace = { version = "0.20.0", features = ["esp32s3", "panic-handler", "println"] }
+esp-println = { version = "0.18.0", features = ["esp32s3"] }
+
+[[bin]]
+name = "roasted-zippy"
+path = "src/main.rs"
+test = false
+bench = false

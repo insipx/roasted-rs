@@ -1,0 +1,10 @@
+[package]
+name = "zippy-cli"
+version = "0.1.0"
+edition = "2024"
+description = "communicates with zippy of a serial port"
+
+[dependencies]
+dialoguer.workspace = true
+lexopt.workspace = true
+serialport.workspace = true
