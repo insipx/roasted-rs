@@ -1,8 +1,5 @@
 { inputs, lib, ... }:
 {
-  config.flake.lib.overlays = [
-    inputs.fenix.overlays.default
-  ];
   imports = [
     inputs.pkgs-by-name.flakeModule
   ];
@@ -11,6 +8,7 @@
       system,
       config,
       pkgs,
+      lib,
       ...
     }:
     let
@@ -23,26 +21,36 @@
         p: targets:
         p.fenix.combine [
           (toolchain p)
-          (lib.forEach targets (target: p.fenix.targets."${target}".minimal.rust-std))
+          (lib.forEach targets (target: p.fenix.targets."${target}".latest.rust-std))
         ];
       rust-toolchain = target: p: mkToolchain p [ target ];
       # Make a toolchain for a single target with the x-compile pkgs
       mkToolchainFor =
         final: target: (inputs.crane.mkLib final).overrideToolchain (rust-toolchain target);
       nativeToolchain = mkToolchainFor pkgs pkgs.stdenv.buildPlatform.rust.rustcTarget;
-
+      commonOverlays = [
+        inputs.fenix.overlays.default
+        (final: prev: {
+          # legacyPackages exposes packages as well as derivations
+          local = config.legacyPackages;
+          inherit mkToolchain nativeToolchain;
+          mkToolchainFor = mkToolchainFor final;
+        })
+      ];
+      riscvPkgs = import inputs.nixpkgs {
+        inherit system;
+        overlays = commonOverlays;
+        crossSystem = lib.systems.examples.riscv32-embedded // {
+          rustc.config = "riscv32imc-unknown-none-elf";
+        };
+      };
     in
     {
-
       _module.args.pkgs = import inputs.nixpkgs {
         inherit system;
-        overlays = [
-          inputs.fenix.overlays.default
+        overlays = commonOverlays ++ [
           (final: prev: {
-            # legacyPackages exposes packages as well as derivations
-            local = config.legacyPackages;
-            inherit mkToolchain nativeToolchain;
-            mkToolchainFor = mkToolchainFor final;
+            inherit riscvPkgs;
           })
         ];
       };

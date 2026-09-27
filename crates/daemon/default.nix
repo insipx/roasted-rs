@@ -22,7 +22,8 @@ let
     };
   cargoArtifacts = rust.buildDepsOnly commonArgs;
 in
-rust.buildPackage {
+rust.buildPackage commonArgs
+// {
   pname = "roasted-daemon";
   src = local.filesets.forCrate /crates/daemon;
   version = "0.1.0";

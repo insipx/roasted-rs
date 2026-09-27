@@ -7,9 +7,6 @@ let
       lib,
       fenix,
       pkg-config,
-      avrdude,
-      pkgsCross,
-      ravedude,
       mkShell,
       cargo-generate,
       local,
@@ -28,10 +25,6 @@ let
       buildInputs = [
         rust-toolchain
         fenix.rust-analyzer
-        # ravedude
-        # avrdude
-        # pkgsCross.avr.buildPackages.gcc
-        # local.cargo-ravedude
         cargo-generate
         local.cargo-espflash
         espflash

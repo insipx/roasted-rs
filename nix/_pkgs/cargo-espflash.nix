@@ -32,7 +32,7 @@ rustPlatform.buildRustPackage {
 
   src = fetchCrate {
     inherit (espflash-common) pname version;
-    hash = "sha256-0000000000000000000000000000000000000000000=";
+    hash = "sha256-dLtEd1pc0MPlWnuVkT6tdf1oDtG4VQrEiAEpg8ai5CE=";
   };
-  cargoHash = "sha256-0000000000000000000000000000000000000000000=";
+  cargoHash = "sha256-egPIBJ+TgAR21Pw1WQzvYLmrQdZW3gmmt8b+kf2B4QU=";
 }

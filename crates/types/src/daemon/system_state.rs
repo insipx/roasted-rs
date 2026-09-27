@@ -14,4 +14,3 @@ pub struct GaggimateSystemState {
     /// Controller error code if any
     pub error_code: Option<i64>,
 }
-
