@@ -30,10 +30,6 @@ rustPlatform.buildRustPackage {
 
   buildInputs = lib.optionals stdenv.hostPlatform.isLinux [ udev ];
 
-  postInstall = ''
-    wrapProgram $out/bin/ravedude --suffix PATH : ${lib.makeBinPath [ avrdude ]}
-  '';
-
   src = fetchCrate {
     inherit (ravedude-common) pname version;
     hash = "sha256-Ar2oQx7dKKfzkM3FMcJXiPHxNa0KcMRht38q+NgowfU=";

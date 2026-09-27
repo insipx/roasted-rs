@@ -2,5 +2,6 @@
 name = "roasted-zippy"
 version = "0.1.0"
 edition = "2024"
+description = "ESP32 Audio/Microphone to roast your espresso"
 
 [dependencies]

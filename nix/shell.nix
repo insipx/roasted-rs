@@ -15,6 +15,8 @@ let
       local,
       diesel-cli,
       sqlite,
+      espflash,
+      ldproxy,
     }:
 
     let
@@ -26,11 +28,14 @@ let
       buildInputs = [
         rust-toolchain
         fenix.rust-analyzer
-        ravedude
-        avrdude
-        pkgsCross.avr.buildPackages.gcc
+        # ravedude
+        # avrdude
+        # pkgsCross.avr.buildPackages.gcc
+        # local.cargo-ravedude
         cargo-generate
-        local.cargo-ravedude
+        local.cargo-espflash
+        espflash
+        ldproxy
         diesel-cli
         sqlite
       ]
