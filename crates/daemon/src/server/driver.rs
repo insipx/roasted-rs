@@ -45,7 +45,7 @@ async fn run(driver: RoastedDriver) -> Result<()> {
         // initiate LLM facts recital of first shot profiles
         // Ask for shot taste
         // give judgement
-        // covnersation sequence
+        // conversation sequence
         // end
         //
     }
