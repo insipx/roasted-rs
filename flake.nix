@@ -14,6 +14,7 @@
     crane.url = "github:ipetkov/crane";
     import-tree.url = "github:vic/import-tree";
     treefmt-nix.url = "github:numtide/treefmt-nix";
+    esp-nix.url = "github:insipx/nixpkgs-esp-dev/rustc";
   };
 
   outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./nix);
