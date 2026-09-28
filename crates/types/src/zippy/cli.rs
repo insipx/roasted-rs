@@ -1,3 +1,5 @@
+use alloc::string::String;
+
 use bon::Builder;
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
@@ -12,6 +14,8 @@ pub enum CliAction {
     InitWifi(InitWifi),
     /// List available ports
     ListPorts,
+    /// set the url of the roasted-rs service
+    SetDaemonUrl(Url),
 }
 
 /// Initializing Wifi
@@ -21,4 +25,14 @@ pub struct InitWifi {
     ssid: String,
     /// Wifi password
     password: String,
+}
+
+/// A response from Zippy
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub enum ZippyResponse {
+    /// Zippy has nothing else to say
+    #[default]
+    End,
+    /// Bounded UTF-8 Message
+    Message([u8; 32]),
 }

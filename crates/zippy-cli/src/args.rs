@@ -7,7 +7,6 @@ use color_eyre::{
 use dialoguer::Password;
 use lexopt::{Parser, prelude::*};
 use roasted_types::zippy::{CliAction, InitWifi};
-use serde::{Deserialize, Serialize};
 
 fn err(name: &str) -> String {
     format!("failed to parse argument `{name}`")
@@ -51,6 +50,10 @@ fn parse_wifi(parser: &mut Parser) -> Result<CliAction> {
             Short('s') | Long("ssid") => {
                 ssid = Some(parser.value()?.parse().wrap_err(err("ssid"))?);
             }
+            Short('h') | Long("help") => {
+                println!("Usage: zippy-cli [-d|--device STRING] init-wifi [-s|--ssid=STRING]");
+                std::process::exit(0);
+            }
             _ => bail!(args.unexpected()),
         }
     }
@@ -85,7 +88,7 @@ pub fn parse_args() -> Result<Args> {
                 break;
             }
             Short('h') | Long("help") => {
-                println!("Usage: zippy-cli [-d|--device=STRING -a|--action `say_hello|init_wifi`]");
+                println!("Usage: zippy-cli [-d|--device=FILE [ACTION]");
                 std::process::exit(0);
             }
             _ => bail!(arg.unexpected()),

@@ -1,3 +1,5 @@
+use core::ops;
+
 use serde::{Deserialize, Serialize};
 
 /// Elapsed process time in milliseconds.
@@ -7,7 +9,7 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::BigInt))]
 pub struct ElapsedMs(pub u64);
 
-impl std::ops::Deref for ElapsedMs {
+impl ops::Deref for ElapsedMs {
     type Target = u64;
 
     fn deref(&self) -> &Self::Target {

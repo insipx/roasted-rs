@@ -1,3 +1,5 @@
+use alloc::{string::String, vec::Vec};
+
 use crate::daemon::GaggimateState;
 
 /// The accumulated state of a single shot pull

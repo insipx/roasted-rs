@@ -1,3 +1,5 @@
+use alloc::string::String;
+
 use super::*;
 
 /// State snapshot about the overall Gaggimate system.

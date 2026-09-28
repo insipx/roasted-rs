@@ -1,4 +1,6 @@
 //! Types that are simply their definitions, no manual implementations.
+use alloc::{boxed::Box, string::String};
+
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 

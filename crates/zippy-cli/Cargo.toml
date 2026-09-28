@@ -7,9 +7,11 @@ description = "communicates with zippy of a serial port"
 [dependencies]
 color-eyre.workspace = true
 dialoguer.workspace = true
+futures.workspace = true
 lexopt.workspace = true
-postcard.workspace = true
-roasted-types.workspace = true
-serde.workspace = true
-serialport.workspace = true
+pin-project-lite.workspace = true
+postcard = { workspace = true, features = ["use-std"] }
+roasted-types = { workspace = true, features = ["zippy"] }
 tabled.workspace = true
+tokio = { workspace = true, features = ["signal", "io-std", "io-util", "rt"] }
+tokio-serial.workspace = true

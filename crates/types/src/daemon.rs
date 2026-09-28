@@ -1,5 +1,7 @@
 //! Shared types/merges into generated WebSocket types for the roasted-rs daemon server
 
+use alloc::boxed::Box;
+
 use crate::ws::gaggimate::{Patch, Status, SystemPhase, SystemState};
 
 mod gaggimate_state;

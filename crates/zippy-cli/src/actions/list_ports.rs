@@ -1,13 +1,13 @@
 use color_eyre::Result;
-use serialport::SerialPortType;
 use tabled::{
     Table, Tabled,
     derive::display,
     settings::{Alignment, Style, object::Columns},
 };
+use tokio_serial::SerialPortType;
 
 pub fn run() -> Result<()> {
-    let ports = serialport::available_ports()?;
+    let ports = tokio_serial::available_ports()?;
     let ports = ports
         .into_iter()
         .map(|p| {

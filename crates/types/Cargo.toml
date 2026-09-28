@@ -5,9 +5,10 @@ edition = "2024"
 
 [dependencies]
 bon.workspace = true
-serde.workspace = true
+serde = { workspace = true, features = ["derive", "alloc"] }
 serde_repr.workspace = true
-zeroize.workspace = true
+url = { workspace = true, default-features = false }
+zeroize = { workspace = true, features = ["alloc"] }
 
 # optional
 diesel = { workspace = true, optional = true }
@@ -21,5 +22,10 @@ insta.workspace = true
 serde_json.workspace = true
 
 [features]
-default = ["serde/std", "zeroize/std", "bon/std"]
-diesel = ["dep:diesel", "dep:roasted-db-schema", "dep:uuid"]
+std = []
+default = ["std", "serde/std", "zeroize/std", "bon/std", "url/std"]
+all = ["db", "ws", "zippy", "daemon"]
+db = ["dep:diesel", "dep:roasted-db-schema", "dep:uuid"]
+ws = []
+zippy = []
+daemon = []

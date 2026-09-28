@@ -1,3 +1,5 @@
+use alloc::{string::String, vec::Vec};
+
 use crate::{
     daemon::GaggimateSystemState,
     ws::gaggimate::{MachineMode, ProcessStatus, WarningState},

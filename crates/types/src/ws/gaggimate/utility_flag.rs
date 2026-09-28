@@ -1,3 +1,5 @@
+use core::ops;
+
 use serde::{Deserialize, Serialize};
 
 /// Numeric utility profile flag reported by the firmware.
@@ -7,7 +9,7 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Integer))]
 pub struct UtilityFlag(pub u8);
 
-impl std::ops::Deref for UtilityFlag {
+impl core::ops::Deref for UtilityFlag {
     type Target = u8;
 
     fn deref(&self) -> &Self::Target {

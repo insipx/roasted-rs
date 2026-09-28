@@ -1,35 +1,65 @@
-use color_eyre::{Result, eyre::bail};
-use roasted_types::zippy::CliAction;
-use serialport::SerialPortType;
+use std::time::Duration;
 
-use crate::args::Args;
+use cobs_stream::CobsStream;
+use color_eyre::{Result, eyre::bail};
+use futures::TryStreamExt;
+use roasted_types::zippy::{CliAction, ZippyResponse};
+use tokio::io::AsyncWriteExt;
+use tokio_serial::SerialPortBuilderExt;
 
 mod actions;
 mod args;
+mod cobs_stream;
 
-fn main() -> Result<()> {
+#[tokio::main(flavor = "local")]
+async fn main() -> Result<()> {
     color_eyre::install()?;
     let args = args::parse_args()?;
-    let args::Args { ref device, ref action } = args;
+    let args::Args { ref action, .. } = args;
 
     match action {
-        CliAction::SayHello => {
-            ensure_args(&args);
-            todo!()
-        }
-        CliAction::InitWifi(_) => {
-            todo!()
-        }
         CliAction::ListPorts => {
             actions::list_ports::run()?;
+            std::process::exit(0);
         }
+        _ => (),
     }
+    drive(args).await?;
+
     Ok(())
 }
 
-fn ensure_args(args: &Args) -> Result<()> {
-    if args.device.is_none() {
-        bail!("`device` must be specified with `-d` or `--device`")
+async fn drive(args: args::Args) -> Result<()> {
+    let args::Args { device, action } = args;
+    let Some(device) = device else { bail!("`device` must be specified with `-d` or `--device`") };
+
+    let shutdown = tokio::signal::ctrl_c();
+    tokio::pin!(shutdown);
+    let mut port = tokio_serial::new(device.to_string_lossy(), 115200)
+        .timeout(Duration::from_secs(5))
+        .open_native_async()?;
+
+    postcard::to_io(&action, &mut port)?;
+    port.write_all(b"\n").await?;
+    port.flush().await?;
+
+    let mut s = CobsStream::new(port);
+    loop {
+        tokio::select! {
+            response = s.try_next() => {
+                if let Some(response) = response? {
+                    match response {
+                        ZippyResponse::End => break,
+                        ZippyResponse::Message(message) => println!("{}", String::from_utf8_lossy(&message))
+                    }
+                }
+            }
+            result = &mut shutdown => {
+                result?;
+                break;
+            }
+        }
     }
+
     Ok(())
 }
