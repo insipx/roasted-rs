@@ -12,3 +12,4 @@ postcard.workspace = true
 roasted-types.workspace = true
 serde.workspace = true
 serialport.workspace = true
+tabled.workspace = true

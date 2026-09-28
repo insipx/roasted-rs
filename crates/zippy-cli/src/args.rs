@@ -1,12 +1,13 @@
-use serde::{Serialize, Deserialize};
-use roasted_types::zippy::{InitWifi, CliAction};
-use color_eyre::{Result, Report};
-use color_eyre::eyre::{WrapErr, bail};
-use std::path::PathBuf;
-use lexopt::{Parser, prelude::*};
-use dialoguer::Password;
+use std::{path::PathBuf, str::FromStr};
 
-use std::str::FromStr;
+use color_eyre::{
+    Report, Result,
+    eyre::{WrapErr, bail},
+};
+use dialoguer::Password;
+use lexopt::{Parser, prelude::*};
+use roasted_types::zippy::{CliAction, InitWifi};
+use serde::{Deserialize, Serialize};
 
 fn err(name: &str) -> String {
     format!("failed to parse argument `{name}`")
@@ -14,8 +15,8 @@ fn err(name: &str) -> String {
 
 #[derive(Clone, Debug, Default)]
 pub struct Args {
-    pub device: PathBuf,
-    pub action: CliAction
+    pub device: Option<PathBuf>,
+    pub action: CliAction,
 }
 
 /// The CLI Action for lexopt. Must reflect [`CliAction`].
@@ -23,26 +24,23 @@ pub struct Args {
 enum Command {
     #[default]
     SayHello,
-    InitWifi
+    InitWifi,
+    /// List available ports
+    ListPorts,
 }
 
 impl FromStr for Command {
     type Err = Report;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "SayHello" | "sayhello" | "hello" | "say_hello" => {
-                Ok(Self::SayHello)
-            },
-            "InitWifi" | "init_wifi" | "initwifi" | "wifi" => {
-                Ok(Self::InitWifi)
-            },
-            _ => bail!("unknown command: `{}` for `CliAction`", s)
+            "SayHello" | "sayhello" | "hello" | "say-hello" | "say_hello" => Ok(Self::SayHello),
+            "InitWifi" | "init_wifi" | "init-wifi" | "initwifi" | "wifi" => Ok(Self::InitWifi),
+            "ListPorts" | "list_ports" | "list-ports" | "listports" | "ports" => {
+                Ok(Self::ListPorts)
+            }
+            _ => bail!("unknown command: `{}` for `CliAction`", s),
         }
     }
-}
-
-fn parse_hello(parser: &mut Parser) -> CliAction {
-    CliAction::SayHello
 }
 
 fn parse_wifi(parser: &mut Parser) -> Result<CliAction> {
@@ -52,8 +50,8 @@ fn parse_wifi(parser: &mut Parser) -> Result<CliAction> {
         match args {
             Short('s') | Long("ssid") => {
                 ssid = Some(parser.value()?.parse().wrap_err(err("ssid"))?);
-            },
-            _ => bail!(args.unexpected())
+            }
+            _ => bail!(args.unexpected()),
         }
     }
 
@@ -61,14 +59,10 @@ fn parse_wifi(parser: &mut Parser) -> Result<CliAction> {
         bail!("`ssid` must be specified with `-s` or `--ssid`");
     };
 
-    let password = Password::new()
-      .with_prompt("Wi-Fi password")
-      .allow_empty_password(true)
-      .interact()?;
+    let password =
+        Password::new().with_prompt("Wi-Fi password").allow_empty_password(true).interact()?;
 
-    Ok(CliAction::InitWifi(InitWifi {
-        ssid, password
-    }))
+    Ok(CliAction::InitWifi(InitWifi::builder().ssid(ssid).password(password).build()))
 }
 
 pub fn parse_args() -> Result<Args> {
@@ -80,22 +74,18 @@ pub fn parse_args() -> Result<Args> {
         match arg {
             Short('d') | Long("device") => {
                 device = Some(parser.value()?.parse().wrap_err(err("device"))?);
-            },
+            }
             Value(val) => {
-                if device.is_none() {
-                    break;
-                }
                 let cmd = Command::from_str(&val.string()?)?;
                 action = match cmd {
-                    Command::SayHello => Some(parse_hello(&mut parser)),
+                    Command::SayHello => Some(CliAction::SayHello),
                     Command::InitWifi => Some(parse_wifi(&mut parser)?),
+                    Command::ListPorts => Some(CliAction::ListPorts),
                 };
                 break;
-            },
+            }
             Short('h') | Long("help") => {
-                println!(
-                    "Usage: zippy-cli [-d|--device=STRING -a|--action `say_hello|init_wifi`]"
-                );
+                println!("Usage: zippy-cli [-d|--device=STRING -a|--action `say_hello|init_wifi`]");
                 std::process::exit(0);
             }
             _ => bail!(arg.unexpected()),
@@ -103,13 +93,6 @@ pub fn parse_args() -> Result<Args> {
     }
 
     let action = action.unwrap_or(CliAction::SayHello);
-    let Some(device) = device else {
-        bail!("`device` must be specified with `-d` or `--device`")
-    };
 
-    Ok(Args {
-        device,
-        action
-    })
+    Ok(Args { device, action })
 }
-

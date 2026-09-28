@@ -2,8 +2,8 @@
 
 #![deny(missing_docs)]
 
-pub mod ws;
 pub mod daemon;
+pub mod ws;
 /// Types for Zippy, the software running on an esp32-s3
 pub mod zippy;
 
