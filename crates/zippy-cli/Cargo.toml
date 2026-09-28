@@ -5,6 +5,10 @@ edition = "2024"
 description = "communicates with zippy of a serial port"
 
 [dependencies]
+color-eyre.workspace = true
 dialoguer.workspace = true
 lexopt.workspace = true
+postcard.workspace = true
+roasted-types.workspace = true
+serde.workspace = true
 serialport.workspace = true

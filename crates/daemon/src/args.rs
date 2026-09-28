@@ -4,8 +4,7 @@ use color_eyre::eyre::{Result, WrapErr, bail};
 use url::Url;
 
 #[derive(Clone)]
-pub struct Args {
-    /// Url for Gaggimate
+pub struct Args { /// Url for Gaggimate
     pub gaggimate: Url,
     /// port to bind webserver on, default 443
     pub ws_port: u16,

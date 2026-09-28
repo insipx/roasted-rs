@@ -4,9 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-diesel = { workspace = true, optional = true }
+bon.workspace = true
 serde.workspace = true
 serde_repr.workspace = true
+zeroize.workspace = true
+
+# optional
+diesel = { workspace = true, optional = true }
 uuid = { workspace = true, optional = true }
 
 # local
@@ -17,4 +21,5 @@ insta.workspace = true
 serde_json.workspace = true
 
 [features]
+default = ["serde/std", "zeroize/std", "bon/std"]
 diesel = ["dep:diesel", "dep:roasted-db-schema", "dep:uuid"]

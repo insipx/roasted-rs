@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.dependencies]
-bon = "3.10"
+bon = { version = "3.10", default-features = false }
 color-eyre = "0.6"
 dialoguer = "0.12"
 diesel = { version = "2.3", features = [
@@ -16,7 +16,7 @@ insta = "1.48"
 lexopt = "0.3.2"
 pin-project-lite = "0.2"
 postcard = "1.1"
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive"], default-features = false }
 serde_json = "1"
 serde_repr = "0.1"
 serialport = "4.10"
@@ -34,6 +34,7 @@ tracing-subscriber = "0.3"
 url = "2.5"
 uuid = { version = "1.26", features = ["v7"] }
 warp = { version = "0.4", features = ["websocket", "server"] }
+zeroize = { version = "1.9", default-features = false, features = ["derive"] }
 
 # local dep
 roasted-db = { path = "crates/db" }

@@ -6,3 +6,6 @@ description = "roasted-rs database definitions"
 
 [dependencies]
 diesel.workspace = true
+
+[features]
+default = []

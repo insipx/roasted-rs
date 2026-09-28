@@ -9,3 +9,6 @@ color-eyre.workspace = true
 diesel.workspace = true
 roasted-db-schema.workspace = true
 roasted-types = { workspace = true, features = ["diesel"] }
+
+[features]
+default = ["bon/std"]
