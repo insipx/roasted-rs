@@ -10,11 +10,12 @@ use error::Error;
 use esp_backtrace as _;
 use esp_hal::{
     clock::CpuClock,
-    peripherals::Peripherals,
+    peripherals::{FROM_CPU_INTR0, TIMG0},
     timer::timg::TimerGroup,
     uart::{Config, UartTx},
-    usb::usb_serial_jtag::UsbSerialJtag,
 };
+
+extern crate alloc;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -24,24 +25,32 @@ async fn main(spawner: Spawner) -> () {
     let peripherals = esp_hal::init(config);
     esp_alloc::heap_allocator!(size: 64 * 1024);
     esp_println::println!("Hello");
-    if let Err(e) = run(spawner, peripherals).await {
+
+    #[cfg(bare_metal)]
+    let rw = esp_hal::usb::usb_serial_jtag::UsbSerialJtag::new(peripherals.USB_DEVICE).into_async();
+    #[cfg(emulated)]
+    let rw = esp_hal::uart::Uart::new(peripherals.UART1, Default::default())
+        .expect("UART1 initialization failed")
+        .into_async();
+    let _debug_uart = UartTx::new(peripherals.UART0, Config::default())
+        .expect("UART failed to init")
+        .with_tx(peripherals.GPIO6);
+    if let Err(e) = run(spawner, peripherals.TIMG0, peripherals.FROM_CPU_INTR0, rw).await {
         panic!("Zippy failed: {e:?}");
     }
     core::future::pending::<()>().await;
 }
 
-async fn run(spawner: Spawner, peripherals: Peripherals) -> Result<(), Error> {
-    let _debug_uart = UartTx::new(peripherals.UART0, Config::default())?.with_tx(peripherals.GPIO6);
-    let timg0 = TimerGroup::new(peripherals.TIMG0);
-    esp_rtos::start(timg0.timer0, peripherals.FROM_CPU_INTR0);
-    // loop {
-    //     esp_println::println!("UART works");
-    //     embassy_time::Timer::after_secs(1).await;
-    // }
+async fn run(
+    spawner: Spawner,
+    timer: TIMG0<'static>,
+    cpu: FROM_CPU_INTR0<'static>,
+    rw: serial::CommsPeripheral,
+) -> Result<(), Error> {
+    let timg0 = TimerGroup::new(timer);
+    esp_rtos::start(timg0.timer0, cpu);
 
-    // spawn the interface listening for CliActions
-    let (rx, tx) = UsbSerialJtag::new(peripherals.USB_DEVICE).into_async().split();
-
-    spawner.spawn(serial::cli_driver(rx, tx).unwrap());
+    esp_println::println!("spawning\r");
+    spawner.spawn(serial::cli_driver(rw).unwrap());
     Ok(())
 }

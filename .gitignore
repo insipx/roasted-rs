@@ -6,4 +6,4 @@ result
 result/**
 result-*
 ws-out*
-
+*.bin

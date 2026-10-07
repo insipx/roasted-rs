@@ -36,3 +36,10 @@ name = "roasted-zippy"
 path = "src/main.rs"
 test = false
 bench = false
+
+[features]
+default = []
+qemu = []
+
+[build-dependencies]
+cfg_aliases = "0.2"

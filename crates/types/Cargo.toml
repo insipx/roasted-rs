@@ -7,7 +7,7 @@ edition = "2024"
 bon.workspace = true
 serde = { workspace = true, features = ["derive", "alloc"] }
 serde_repr.workspace = true
-url = { workspace = true, default-features = false }
+url = { workspace = true, default-features = false, features = ["serde"] }
 zeroize = { workspace = true, features = ["alloc"] }
 
 # optional

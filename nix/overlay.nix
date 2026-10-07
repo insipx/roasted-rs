@@ -1,4 +1,4 @@
-{ inputs, lib, ... }:
+{ inputs, ... }:
 {
   imports = [
     inputs.pkgs-by-name.flakeModule
@@ -30,6 +30,7 @@
       nativeToolchain = mkToolchainFor pkgs pkgs.stdenv.buildPlatform.rust.rustcTarget;
       commonOverlays = [
         inputs.fenix.overlays.default
+        inputs.esp-qemu.overlays.default
         (final: prev: {
           # legacyPackages exposes packages as well as derivations
           local = config.legacyPackages;

@@ -14,6 +14,7 @@ let
       sqlite,
       espflash,
       ldproxy,
+      picocom,
     }:
 
     let
@@ -31,6 +32,7 @@ let
         ldproxy
         diesel-cli
         sqlite
+        picocom
       ]
       ++ lib.optionals isDarwin [
         darwin.cctools

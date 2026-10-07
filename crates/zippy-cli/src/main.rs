@@ -39,9 +39,12 @@ async fn drive(args: args::Args) -> Result<()> {
         .timeout(Duration::from_secs(5))
         .open_native_async()?;
 
-    postcard::to_io(&action, &mut port)?;
-    port.write_all(b"\n").await?;
+    let mut buffer = [0u8; std::mem::size_of::<CliAction>()];
+    let frame = postcard::to_slice_cobs(&action, &mut buffer)?;
+    port.write_all(frame).await?;
     port.flush().await?;
+    // postcard::to_io(&action, &mut port)?;
+    println!("flushed");
 
     let mut s = CobsStream::new(port);
     loop {

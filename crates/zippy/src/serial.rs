@@ -1,9 +1,6 @@
-use embedded_io_async::Write;
+use embedded_io_async::{Read, Write};
 use esp_backtrace as _;
-use esp_hal::{
-    Async,
-    usb::usb_serial_jtag::{UsbSerialJtagRx, UsbSerialJtagTx},
-};
+use esp_hal::Async;
 use postcard::{
     ser_flavors::{Cobs, Slice},
     serialize_with_flavor,
@@ -12,26 +9,34 @@ use roasted_types::zippy::{CliAction, ZippyResponse};
 
 use crate::{configuration::MAX_BUFFER_SIZE, error::Result};
 
+#[cfg(bare_metal)]
+pub type CommsPeripheral = esp_hal::usb::usb_serial_jtag::UsbSerialJtag<'static, Async>;
+
+#[cfg(emulated)]
+pub type CommsPeripheral = esp_hal::uart::Uart<'static, Async>;
+
 #[embassy_executor::task]
-pub async fn cli_driver(rx: UsbSerialJtagRx<'static, Async>, tx: UsbSerialJtagTx<'static, Async>) {
-    if let Err(e) = run(rx, tx).await {
+pub async fn cli_driver(rw: CommsPeripheral) {
+    esp_println::println!("running CLI Driver\r");
+    if let Err(e) = run(rw).await {
         panic!("CLI Command Task Failed {e:?}");
     }
 }
 
-async fn run(
-    mut rx: UsbSerialJtagRx<'static, Async>,
-    mut tx: UsbSerialJtagTx<'static, Async>,
-) -> Result<()> {
+async fn run<D>(mut rw: D) -> Result<()>
+where
+    D: Read + Write,
+{
     let mut rbuf = [0u8; MAX_BUFFER_SIZE];
     loop {
-        let r = embedded_io_async::Read::read(&mut rx, &mut rbuf).await;
+        let r = embedded_io_async::Read::read(&mut rw, &mut rbuf).await;
         match r {
             Ok(len) => {
+                esp_println::println!("got an action\r");
                 if let Some(response) = process_action(&rbuf[..len])? {
-                    send(response, &mut tx).await?;
+                    send(response, &mut rw).await?;
                 }
-                send(ZippyResponse::End, &mut tx).await?;
+                send(ZippyResponse::End, &mut rw).await?;
             }
             #[allow(unreachable_patterns)]
             Err(e) => esp_println::println!("RX Error: {:?}", e),
@@ -39,11 +44,14 @@ async fn run(
     }
 }
 
-async fn send(response: ZippyResponse, tx: &mut UsbSerialJtagTx<'static, Async>) -> Result<()> {
+async fn send<T>(response: ZippyResponse, tx: &mut T) -> Result<()>
+where
+    T: Write,
+{
     let mut reply_buffer = [0u8; core::mem::size_of::<ZippyResponse>()];
     let res = serialize_with_flavor::<_, Cobs<Slice>, &mut [u8]>(
         &response,
-        Cobs::try_new(Slice::new(&mut reply_buffer[6..]))?,
+        Cobs::try_new(Slice::new(&mut reply_buffer))?,
     )?;
     tx.write_all(res).await.expect("infallible");
     Ok(())

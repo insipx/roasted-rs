@@ -15,7 +15,7 @@ pub enum CliAction {
     /// List available ports
     ListPorts,
     /// set the url of the roasted-rs service
-    SetDaemonUrl(Url),
+    SetDaemonUrl(url::Url),
 }
 
 /// Initializing Wifi

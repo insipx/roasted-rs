@@ -15,6 +15,7 @@
     import-tree.url = "github:vic/import-tree";
     treefmt-nix.url = "github:numtide/treefmt-nix";
     esp-nix.url = "github:insipx/nixpkgs-esp-dev/rustc";
+    esp-qemu.url = "github:SFrijters/nix-qemu-espressif";
   };
 
   outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./nix);

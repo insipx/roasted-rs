@@ -35,6 +35,24 @@
         "type": "github"
       }
     },
+    "esp-qemu": {
+      "inputs": {
+        "nixpkgs": "nixpkgs_2"
+      },
+      "locked": {
+        "lastModified": 1788971700,
+        "narHash": "sha256-PpB0gT0BidkWPV/IiONF5zC4H2oTCo8R8nGVyHNJC6c=",
+        "owner": "SFrijters",
+        "repo": "nix-qemu-espressif",
+        "rev": "5b177eda12f09c230a03fe91de6ea18be17a1594",
+        "type": "github"
+      },
+      "original": {
+        "owner": "SFrijters",
+        "repo": "nix-qemu-espressif",
+        "type": "github"
+      }
+    },
     "fenix": {
       "inputs": {
         "nixpkgs": [
@@ -140,6 +158,21 @@
     },
     "nixpkgs_2": {
       "locked": {
+        "lastModified": 1788968547,
+        "narHash": "sha256-MnyF6G1X2hCptD+wVjtjFWXHgyufOZ36P2Y2/z5mfCc=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "6424cbb7a267209fd2e11c10725c35c229748f8f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_3": {
+      "locked": {
         "lastModified": 1790185690,
         "narHash": "sha256-xJ+X4hBtOcAFGBOe5nAMyMUeF9foJBmIOu3NjBqBycU=",
         "owner": "NixOS",
@@ -154,7 +187,7 @@
         "type": "github"
       }
     },
-    "nixpkgs_3": {
+    "nixpkgs_4": {
       "locked": {
         "lastModified": 1770107345,
         "narHash": "sha256-tbS0Ebx2PiA1FRW8mt8oejR0qMXmziJmPaU1d4kYY9g=",
@@ -189,10 +222,11 @@
       "inputs": {
         "crane": "crane",
         "esp-nix": "esp-nix",
+        "esp-qemu": "esp-qemu",
         "fenix": "fenix",
         "flake-parts": "flake-parts",
         "import-tree": "import-tree",
-        "nixpkgs": "nixpkgs_2",
+        "nixpkgs": "nixpkgs_3",
         "pkgs-by-name": "pkgs-by-name",
         "treefmt-nix": "treefmt-nix"
       }
@@ -231,7 +265,7 @@
     },
     "treefmt-nix": {
       "inputs": {
-        "nixpkgs": "nixpkgs_3"
+        "nixpkgs": "nixpkgs_4"
       },
       "locked": {
         "lastModified": 1786901030,

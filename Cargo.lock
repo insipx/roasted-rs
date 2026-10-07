@@ -2716,6 +2716,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_repr",
+ "url",
  "uuid",
  "zeroize",
 ]
@@ -2724,6 +2725,7 @@ dependencies = [
 name = "roasted-zippy"
 version = "0.1.0"
 dependencies = [
+ "cfg_aliases",
  "embassy-executor",
  "embassy-sync 0.8.0",
  "embassy-time",
@@ -3746,6 +3748,7 @@ dependencies = [
  "idna",
  "percent-encoding",
  "serde",
+ "serde_derive",
 ]
 
 [[package]]
