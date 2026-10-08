@@ -43,6 +43,7 @@ impl Deref for DbKey {
     }
 }
 
+// need to always load tree from flash on creation
 pub struct Database<'a, V> {
     db: FlashStorage<'a>,
     _marker: PhantomData<V>,
