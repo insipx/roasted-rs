@@ -52,7 +52,10 @@ impl Stream for CobsStream {
                 window = match this.accumulator.feed::<ZippyResponse>(&window) {
                     FeedResult::Consumed => break 'cobs,
                     FeedResult::OverFull(new_wind) => new_wind,
-                    FeedResult::DeserError(new_wind) => new_wind,
+                    FeedResult::DeserError(new_wind) => {
+                        eprintln!("deserialization failed");
+                        new_wind
+                    },
                     FeedResult::Success { data, remaining } => {
                         let len = remaining.len();
                         let start = ct - len;

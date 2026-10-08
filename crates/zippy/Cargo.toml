@@ -19,15 +19,17 @@ esp-bootloader-esp-idf = { version = "0.6.0", features = ["esp32s3"] }
 esp-hal = { version = "~1.2.2", features = ["esp32s3", "unstable"] }
 esp-println = { version = "0.18.0", default-features = false, features = [
   "esp32s3",
-  "uart",
+  "jtag-serial",
   "critical-section",
 ] }
 esp-rtos = { version = "0.4.0", features = ["esp32s3", "embassy"] }
+esp-storage = { version = "0.10", features = ["esp32s3"] }
 heapless = "0.9"
 postcard.workspace = true
 roasted-types = { workspace = true, default-features = false, features = [
   "zippy",
 ] }
+serde.workspace = true
 static_cell.workspace = true
 thiserror = { version = "2", default-features = false }
 
@@ -39,7 +41,6 @@ bench = false
 
 [features]
 default = []
-qemu = []
 
 [build-dependencies]
 cfg_aliases = "0.2"

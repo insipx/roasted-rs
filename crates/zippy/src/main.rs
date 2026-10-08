@@ -4,6 +4,7 @@
 mod configuration;
 mod error;
 mod serial;
+mod db;
 
 use embassy_executor::Spawner;
 use error::Error;
@@ -12,7 +13,6 @@ use esp_hal::{
     clock::CpuClock,
     peripherals::{FROM_CPU_INTR0, TIMG0},
     timer::timg::TimerGroup,
-    uart::{Config, UartTx},
 };
 
 extern crate alloc;
@@ -26,15 +26,12 @@ async fn main(spawner: Spawner) -> () {
     esp_alloc::heap_allocator!(size: 64 * 1024);
     esp_println::println!("Hello");
 
-    #[cfg(bare_metal)]
-    let rw = esp_hal::usb::usb_serial_jtag::UsbSerialJtag::new(peripherals.USB_DEVICE).into_async();
-    #[cfg(emulated)]
-    let rw = esp_hal::uart::Uart::new(peripherals.UART1, Default::default())
-        .expect("UART1 initialization failed")
+    let rw = esp_hal::uart::Uart::new(peripherals.UART0, Default::default())
+        .expect("UART init failed")
+        .with_rx(peripherals.GPIO5)
+        .with_tx(peripherals.GPIO6)
         .into_async();
-    let _debug_uart = UartTx::new(peripherals.UART0, Config::default())
-        .expect("UART failed to init")
-        .with_tx(peripherals.GPIO6);
+
     if let Err(e) = run(spawner, peripherals.TIMG0, peripherals.FROM_CPU_INTR0, rw).await {
         panic!("Zippy failed: {e:?}");
     }

@@ -23,6 +23,7 @@ pub struct Args {
 enum Command {
     #[default]
     SayHello,
+    /// Give zippy a WiFi network to connect to
     InitWifi,
     /// List available ports
     ListPorts,

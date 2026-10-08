@@ -11,4 +11,12 @@ pub enum Error {
     Serialization(#[from] postcard::Error),
     #[error("{0}")]
     Capacity(#[from] heapless::CapacityError),
+    #[error("Error reading/writing data to flash storage")]
+    Storage(#[from] StorageError)
+}
+
+#[derive(Debug, Error)]
+pub enum StorageError {
+    #[error("{0}")]
+    Partition(#[from] esp_bootloader_esp_idf::partitions::Error)
 }

@@ -43,8 +43,6 @@ async fn drive(args: args::Args) -> Result<()> {
     let frame = postcard::to_slice_cobs(&action, &mut buffer)?;
     port.write_all(frame).await?;
     port.flush().await?;
-    // postcard::to_io(&action, &mut port)?;
-    println!("flushed");
 
     let mut s = CobsStream::new(port);
     loop {
@@ -52,8 +50,8 @@ async fn drive(args: args::Args) -> Result<()> {
             response = s.try_next() => {
                 if let Some(response) = response? {
                     match response {
-                        ZippyResponse::End => break,
-                        ZippyResponse::Message(message) => println!("{}", String::from_utf8_lossy(&message))
+                        ZippyResponse::End => break println!("end"),
+                        ZippyResponse::Message(message) => println!("{}", &message)
                     }
                 }
             }

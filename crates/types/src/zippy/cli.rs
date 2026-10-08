@@ -34,5 +34,5 @@ pub enum ZippyResponse {
     #[default]
     End,
     /// Bounded UTF-8 Message
-    Message([u8; 32]),
+    Message(String),
 }
