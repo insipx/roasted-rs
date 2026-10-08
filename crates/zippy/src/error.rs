@@ -21,4 +21,16 @@ pub enum StorageError {
     Partition(#[from] esp_bootloader_esp_idf::partitions::Error),
     #[error("{0}")]
     Postcard(#[from] postcard::Error),
+    #[error("error generating entropy for encrypted storage")]
+    Rng,
+    #[error("The encrypted data partition does not exist. try re-flashing.")]
+    PartitionDoesNotExist,
+    #[error("Error encrypting data for persistent storage")]
+    Encryption(#[from] chacha20poly1305::Error),
+}
+
+impl From<esp_hal::rng::TrngError> for StorageError {
+    fn from(_: esp_hal::rng::TrngError) -> Self {
+        StorageError::Rng
+    }
 }

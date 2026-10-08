@@ -10,6 +10,8 @@ pub enum CliAction {
     /// Just say hello
     #[default]
     SayHello,
+    /// Write a string to encrypted storage (for testing)
+    Write(String),
     /// Initiate wifi sequence
     InitWifi(InitWifi),
     /// List available ports
