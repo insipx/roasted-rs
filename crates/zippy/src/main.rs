@@ -67,7 +67,7 @@ async fn run(
         .entropy(entropy)
         .uart_tx(uart_tx)
         .rx(COMMANDS.dyn_receiver())
-        .build();
+        .build()?;
     spawner.spawn(actions::run(cmds).unwrap());
     Ok(())
 }

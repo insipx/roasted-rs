@@ -1,15 +1,10 @@
 use bon::Builder;
 use embassy_sync::channel::DynamicSender;
-use embedded_io_async::{Read, Write};
 use esp_backtrace as _;
 use esp_hal::Async;
-use postcard::{
-    ser_flavors::{Cobs, Slice},
-    serialize_with_flavor,
-};
-use roasted_types::zippy::{CliAction, ZippyResponse};
+use roasted_types::zippy::CliAction;
 
-use crate::{alloc::string::ToString, configuration::MAX_BUFFER_SIZE, error::Result};
+use crate::{configuration::MAX_BUFFER_SIZE, error::Result};
 
 #[derive(Builder)]
 pub struct UartCli {

@@ -1,22 +1,25 @@
 //! Processes actions
-use alloc::string::ToString;
+use alloc::string::{String, ToString};
 
-use bon::Builder;
+use bon::bon;
 use embassy_sync::channel::DynamicReceiver;
 use embedded_io_async::Write;
 use esp_bootloader_esp_idf::partitions::FlashStorage;
 use esp_hal::{Async, rng::TrngSource, uart::UartTx};
 use esp_println::println;
-use futures::TryStreamExt;
-use postcard::{ser_flavors::{Cobs, Slice}, serialize_with_flavor};
+use postcard::{
+    ser_flavors::{Cobs, Slice},
+    serialize_with_flavor,
+};
 use roasted_types::zippy::{CliAction, ZippyResponse};
 
-use crate::error::Result;
+use crate::{
+    db::{self, Database},
+    error::Result,
+};
 
-#[derive(Builder)]
 pub struct CommandExecutor {
-    db: FlashStorage<'static>,
-    entropy: TrngSource<'static>,
+    db: Database<'static, String>,
     uart_tx: UartTx<'static, Async>,
     // internal msg channel
     rx: DynamicReceiver<'static, CliAction>,
@@ -31,13 +34,34 @@ pub async fn run(mut commands: CommandExecutor) {
     }
 }
 
+#[bon]
 impl CommandExecutor {
+    #[builder]
+    pub fn new(
+        db: FlashStorage<'static>,
+        entropy: TrngSource<'static>,
+        uart_tx: UartTx<'static, Async>,
+        rx: DynamicReceiver<'static, CliAction>,
+    ) -> Result<Self> {
+        Ok(Self { db: Database::new(db, entropy)?, uart_tx, rx })
+    }
+
     pub async fn next(&mut self) -> Result<()> {
         let action = self.rx.receive().await;
-        // match action {
-        //     SayHello => Some()
-        //
-        // }
+        println!("Processing action {action:?}");
+        match action {
+            CliAction::SayHello => {
+                send(new_message("Hello, this is Zippy!")?, &mut self.uart_tx).await?;
+                send(ZippyResponse::End, &mut self.uart_tx).await?;
+            }
+            CliAction::Write(s) => {
+                self.db.put(db::Keys::MISC, s);
+                self.db.flush()?;
+            }
+            CliAction::InitWifi(_) => todo!(),
+            CliAction::ListPorts => todo!(),
+            CliAction::SetDaemonUrl(_) => todo!(),
+        }
         Ok(())
     }
 }

@@ -123,10 +123,12 @@ where
     }
 }
 
-struct Keys;
+pub struct Keys;
 impl Keys {
     /// WiFi SSID
     pub const SSID: DbKey = DbKey::new(*b"SSID");
     /// WiFi Password
     pub const WIPW: DbKey = DbKey::new(*b"WIPW");
+    /// Misc
+    pub const MISC: DbKey = DbKey::new(*b"MISC");
 }

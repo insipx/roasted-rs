@@ -11,3 +11,6 @@ flash:
     ./target/xtensa-esp32s3-none-elf/firmware/roasted-zippy
 build:
     cargo build --release -p roasted-daemon
+
+check:
+    nix develop .#xtensa -c cargo check -p roasted-zippy --profile firmware --target xtensa-esp32s3-none-elf
