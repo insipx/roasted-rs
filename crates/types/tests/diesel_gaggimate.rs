@@ -1,4 +1,4 @@
-#![cfg(feature = "diesel")]
+#![cfg(feature = "db")]
 
 use diesel::{IntoSql, connection::SimpleConnection, prelude::*, sql_types::*};
 use roasted_db_schema::schema::gaggimate_status_frames as frames;

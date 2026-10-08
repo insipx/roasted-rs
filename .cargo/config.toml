@@ -1,4 +1,4 @@
 [target.xtensa-esp32s3-none-elf]
 linker = "xtensa-esp32s3-elf-gcc"
-runner = "espflash flash --monitor --chip esp32s3"
+runner = "espflash flash --monitor --chip esp32s3 --partition-table partitions.csv"
 rustflags = ["-C", "link-arg=-nostartfiles", "-C", "panic=abort"]

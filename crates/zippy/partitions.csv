@@ -1,0 +1,10 @@
+# Name,   Type, SubType, Offset,   Size,     Flags
+# 16KiB for NVS Flash
+nvs,      data, nvs,     0x9000,   0x4000,
+otadata,  data, ota,     0xd000,   0x2000,
+phy_init, data, phy,     0xf000,   0x1000,
+# 4MiB slots for over the air updates
+ota_0,    app,  ota_0,   0x10000,  0x400000,
+ota_1,    app,  ota_1,   0x410000, 0x400000,
+# 32KiB for encrypted storage
+secrets,  data, 0x06,    0x810000, 0x8000,

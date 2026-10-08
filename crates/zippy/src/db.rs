@@ -1,35 +1,29 @@
 //! Storage for Zippy to persist things
-use core::marker::PhantomData;
-use core::ops::Deref;
-
-use esp_storage::FlashStorage;
-use esp_bootloader_esp_idf::partitions::{
-    read_partition_table, DataPartitionSubType, PartitionType,
-};
-use esp_bootloader_esp_idf::partitions::FlashRegion;
-use serde::{Serialize, de::DeserializeOwned};
 use alloc::collections::BTreeMap;
+use core::{marker::PhantomData, ops::Deref};
+
+use esp_bootloader_esp_idf::partitions::{
+    DataPartitionSubType, FlashRegion, PartitionType, read_partition_table,
+};
+use esp_storage::FlashStorage;
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::error::StorageError;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Key {
-    inner: [u8; 4]
+    inner: [u8; 4],
 }
 
 impl Key {
     pub const fn new(v: [u8; 4]) -> Self {
-        Self {
-            inner: v
-        }
+        Self { inner: v }
     }
 }
 
 impl From<[u8; 4]> for Key {
     fn from(v: [u8; 4]) -> Key {
-        Key {
-            inner: v
-        }
+        Key { inner: v }
     }
 }
 
@@ -43,13 +37,12 @@ impl Deref for Key {
 pub struct Database<'a, V> {
     db: FlashStorage<'a>,
     _marker: PhantomData<V>,
-    cache: BTreeMap<Key, V>
-
+    cache: BTreeMap<Key, V>,
 }
 
 pub struct DbRegion<'a, 'd, V> {
     db: FlashRegion<'a, 'd>,
-    _marker: PhantomData<V>
+    _marker: PhantomData<V>,
 }
 
 // fn with_db<V, T, F>(mut flash: FlashStorage, f: F) -> Result<T, StorageError>
@@ -69,20 +62,13 @@ pub struct DbRegion<'a, 'd, V> {
 
 impl<'a, V> Database<'a, V> {
     pub fn new(flash: FlashStorage<'a>) -> Result<Self, StorageError> {
-        Ok(Self {
-            db: flash,
-            cache: Default::default(),
-            _marker: PhantomData,
-        })
+        Ok(Self { db: flash, cache: Default::default(), _marker: PhantomData })
     }
 }
 
 impl<'a, 'd, V> DbRegion<'a, 'd, V> {
     pub fn new(flash: FlashRegion<'a, 'd>) -> Result<Self, StorageError> {
-        Ok(Self {
-            db: flash,
-            _marker: PhantomData,
-        })
+        Ok(Self { db: flash, _marker: PhantomData })
     }
 }
 
@@ -100,24 +86,27 @@ impl<'a, V> Database<'a, V> {
 }
 
 impl<V> Database<'_, V> {
-    fn put(&mut self, key: Key, value: V) {
+    pub fn put(&mut self, key: Key, value: V) {
         let _ = self.cache.insert(key, value);
     }
 
-    fn get(&self, key: &Key) -> Option<&V> {
+    pub fn get(&self, key: &Key) -> Option<&V> {
         self.cache.get(key)
     }
 }
 
-impl<V> Database<'_, V> where V: DeserializeOwned + Serialize {
-    fn flush(&mut self) {
-        let map = self.cache.
+impl<V> Database<'_, V>
+where
+    V: DeserializeOwned + Serialize,
+{
+    /// Flush the DB, persisting all values.
+    pub fn flush(&mut self) -> Result<(), StorageError> {
+        // let mut buf = [0u8; 1024];
+        // let bytes = postcard::to_slice(&self.cache, &mut buf)?;
+        // self.db.write_encrypted(0, &buf);
+        Ok(())
     }
 }
-    //
-    // pub fn write_password(pw: &[u8]) -> Result<(), StorageError> {
-    //     self.
-    // }
 
 struct Keys;
 impl Keys {
@@ -126,4 +115,3 @@ impl Keys {
     /// WiFi Password
     pub const WIPW: Key = Key::new(*b"WIPW");
 }
-

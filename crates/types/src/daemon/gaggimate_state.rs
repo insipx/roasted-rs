@@ -7,12 +7,12 @@ use crate::{
 
 /// State snapshot from Gaggimate
 #[derive(Default, Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "diesel", derive(diesel::Insertable))]
-#[cfg_attr(feature = "diesel", diesel(table_name = roasted_db_schema::schema::gaggimate_status_frames))]
-#[cfg_attr(feature = "diesel", diesel(check_for_backend(diesel::sqlite::Sqlite)))]
+#[cfg_attr(feature = "db", derive(diesel::Insertable))]
+#[cfg_attr(feature = "db", diesel(table_name = roasted_db_schema::schema::gaggimate_status_frames))]
+#[cfg_attr(feature = "db", diesel(check_for_backend(diesel::sqlite::Sqlite)))]
 pub struct GaggimateState {
     /// Current or last process
-    #[cfg_attr(feature = "diesel", diesel(embed))]
+    #[cfg_attr(feature = "db", diesel(embed))]
     pub process: ProcessStatus,
     /// Current temperature, in Celsius
     pub current_temperature: f64,
@@ -31,11 +31,11 @@ pub struct GaggimateState {
     /// Whether the Bluetooth scale is connected. absent retains prior state.
     pub scale_connected: bool,
     /// Display system state.
-    #[cfg_attr(feature = "diesel", diesel(embed))]
+    #[cfg_attr(feature = "db", diesel(embed))]
     pub system_state: GaggimateSystemState,
     // use a separate table
     /// Machine warnings; an empty list is a real update.
-    #[cfg_attr(feature = "diesel", diesel(skip_insertion))]
+    #[cfg_attr(feature = "db", diesel(skip_insertion))]
     pub warnings: Vec<WarningState>,
     /// Target pressure in Bar.
     pub target_pressure: f64,

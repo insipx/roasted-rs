@@ -21,8 +21,8 @@ pub enum Message {
 
 /// Operating modes from the firmware's `src/display/core/constants.h`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Default)]
-#[cfg_attr(feature = "diesel", derive(diesel::AsExpression, diesel::FromSqlRow))]
-#[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Text))]
+#[cfg_attr(feature = "db", derive(diesel::AsExpression, diesel::FromSqlRow))]
+#[cfg_attr(feature = "db", diesel(sql_type = diesel::sql_types::Text))]
 #[repr(u8)]
 pub enum MachineMode {
     /// Machine on standby.
@@ -41,8 +41,8 @@ pub enum MachineMode {
 /// Numeric controller activity reported within a process snapshot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Default)]
 #[repr(u8)]
-#[cfg_attr(feature = "diesel", derive(diesel::AsExpression, diesel::FromSqlRow))]
-#[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Text))]
+#[cfg_attr(feature = "db", derive(diesel::AsExpression, diesel::FromSqlRow))]
+#[cfg_attr(feature = "db", diesel(sql_type = diesel::sql_types::Text))]
 pub enum ProcessActivity {
     /// Controller is inactive; a finished process may still be reported.
     #[default]
@@ -54,8 +54,8 @@ pub enum ProcessActivity {
 /// Live process phase, distinct from the profile's phase type names.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-#[cfg_attr(feature = "diesel", derive(diesel::AsExpression, diesel::FromSqlRow))]
-#[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Text))]
+#[cfg_attr(feature = "db", derive(diesel::AsExpression, diesel::FromSqlRow))]
+#[cfg_attr(feature = "db", diesel(sql_type = diesel::sql_types::Text))]
 pub enum ProcessPhase {
     /// Puck saturation before the main extraction.
     Infusion,
@@ -68,8 +68,8 @@ pub enum ProcessPhase {
 /// Measurement used for live process progress and target values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-#[cfg_attr(feature = "diesel", derive(diesel::AsExpression, diesel::FromSqlRow))]
-#[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Text))]
+#[cfg_attr(feature = "db", derive(diesel::AsExpression, diesel::FromSqlRow))]
+#[cfg_attr(feature = "db", diesel(sql_type = diesel::sql_types::Text))]
 pub enum ProcessTarget {
     /// Elapsed milliseconds.
     Time,
@@ -94,8 +94,8 @@ pub struct SystemState {
 /// Documented display system phases.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "diesel", derive(diesel::AsExpression, diesel::FromSqlRow))]
-#[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Text))]
+#[cfg_attr(feature = "db", derive(diesel::AsExpression, diesel::FromSqlRow))]
+#[cfg_attr(feature = "db", diesel(sql_type = diesel::sql_types::Text))]
 pub enum SystemPhase {
     /// Starting.
     Starting,

@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 /// Numeric utility profile flag reported by the firmware.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "diesel", derive(diesel::AsExpression, diesel::FromSqlRow))]
-#[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Integer))]
+#[cfg_attr(feature = "db", derive(diesel::AsExpression, diesel::FromSqlRow))]
+#[cfg_attr(feature = "db", diesel(sql_type = diesel::sql_types::Integer))]
 pub struct UtilityFlag(pub u8);
 
 impl core::ops::Deref for UtilityFlag {
