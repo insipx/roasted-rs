@@ -12,6 +12,7 @@ diesel = { version = "2.3", features = [
   "uuid",
 ] }
 futures = { version = "0.3", default-features = false }
+hex = { version = "0.4", default-features = false }
 insta = "1.48"
 lexopt = "0.3.2"
 pin-project-lite = "0.2"

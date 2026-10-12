@@ -1,6 +1,7 @@
 //! Processes actions
 use alloc::string::{String, ToString};
 
+use anyhow::Result;
 use bon::bon;
 use embassy_sync::channel::DynamicReceiver;
 use embedded_io_async::Write;
@@ -11,12 +12,9 @@ use postcard::{
     ser_flavors::{Cobs, Slice},
     serialize_with_flavor,
 };
-use roasted_types::zippy::{CliAction, ZippyResponse};
+use roasted_types::zippy::{CliAction, InitWifi, ZippyResponse};
 
-use crate::{
-    db::{self, Database},
-    error::Result,
-};
+use crate::db::{self, Database};
 
 pub struct CommandExecutor {
     db: Database<'static, String>,
@@ -51,35 +49,52 @@ impl CommandExecutor {
         println!("Processing action {action:?}");
         match action {
             CliAction::SayHello => {
-                send(new_message("Hello, this is Zippy!")?, &mut self.uart_tx).await?;
-                send(ZippyResponse::End, &mut self.uart_tx).await?;
+                self.send(new_message("Hello, this is Zippy!")?).await?;
             }
-            CliAction::Write(s) => {
-                self.db.put(db::Keys::MISC, s);
-                self.db.flush()?;
+            CliAction::InitWifi(w) => {
+                let InitWifi { ssid, password } = w;
+                self.db.put(db::Keys::SSID, ssid);
+                self.db.put(db::Keys::WIPW, password);
+                if let Err(e) = self.db.flush() {
+                    println!("sending err");
+                    self.send(new_emessage(alloc::format!("Error while saving wifi to db {e}"))?)
+                        .await?;
+                }
+                self.send(new_message("written")?).await?;
             }
-            CliAction::InitWifi(_) => todo!(),
             CliAction::ListPorts => todo!(),
             CliAction::SetDaemonUrl(_) => todo!(),
         }
+        self.end().await?;
+        Ok(())
+    }
+
+    async fn end(&mut self) -> Result<()> {
+        println!("ending");
+        self.send(ZippyResponse::End).await?;
+        Ok(())
+    }
+
+    async fn send(&mut self, response: ZippyResponse) -> Result<()> {
+        let mut reply_buffer = [0u8; 1024];
+        let res = serialize_with_flavor::<_, Cobs<Slice>, &mut [u8]>(
+            &response,
+            Cobs::try_new(Slice::new(&mut reply_buffer))?,
+        )?;
+        self.uart_tx.write_all(res).await.expect("infallible");
         Ok(())
     }
 }
 
-async fn send<T>(response: ZippyResponse, tx: &mut T) -> Result<()>
-where
-    T: Write,
-{
-    let mut reply_buffer = [0u8; 64];
-    let res = serialize_with_flavor::<_, Cobs<Slice>, &mut [u8]>(
-        &response,
-        Cobs::try_new(Slice::new(&mut reply_buffer))?,
-    )?;
-    tx.write_all(res).await.expect("infallible");
-    Ok(())
+fn new_message<S: AsRef<str>>(msg: S) -> Result<ZippyResponse> {
+    let s: &str = msg.as_ref();
+    Ok(ZippyResponse::Message(s.to_string()))
 }
 
-fn new_message(msg: &str) -> Result<ZippyResponse> {
-    Ok(ZippyResponse::Message(msg.to_string()))
+/// Create an error message
+fn new_emessage<S: AsRef<str>>(msg: S) -> Result<ZippyResponse> {
+    let s: &str = msg.as_ref();
+    Ok(ZippyResponse::ErrorMessage(s.to_string()))
 }
+
 // send(ZippyResponse::End, &mut rw.uart_rx).await?;

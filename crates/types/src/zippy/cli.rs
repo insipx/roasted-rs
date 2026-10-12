@@ -10,8 +10,6 @@ pub enum CliAction {
     /// Just say hello
     #[default]
     SayHello,
-    /// Write a string to encrypted storage (for testing)
-    Write(String),
     /// Initiate wifi sequence
     InitWifi(InitWifi),
     /// List available ports
@@ -24,9 +22,9 @@ pub enum CliAction {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Zeroize, Clone, Builder)]
 pub struct InitWifi {
     /// Wifi Name
-    ssid: String,
+    pub ssid: String,
     /// Wifi password
-    password: String,
+    pub password: String,
 }
 
 /// A response from Zippy
@@ -35,6 +33,8 @@ pub enum ZippyResponse {
     /// Zippy has nothing else to say
     #[default]
     End,
+    /// Zippy encountered an error
+    ErrorMessage(String),
     /// Bounded UTF-8 Message
     Message(String),
 }

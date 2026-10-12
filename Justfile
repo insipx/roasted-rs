@@ -1,7 +1,7 @@
 
 
 flash:
-    nix develop .#xtensa -c cargo build -p roasted-zippy --profile firmware --target xtensa-esp32s3-none-elf
+    nix develop .#xtensa -c cargo build -p roasted-zippy --profile firmware --target xtensa-esp32s3-none-elf --features debug
     espflash flash \
     --chip esp32s3 \
     --port /dev/ttyACM1 \

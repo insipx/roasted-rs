@@ -17,13 +17,11 @@ async fn main() -> Result<()> {
     let args = args::parse_args()?;
     let args::Args { ref action, .. } = args;
 
-    match action {
-        CliAction::ListPorts => {
-            actions::list_ports::run()?;
-            std::process::exit(0);
-        }
-        _ => (),
+    if action == &CliAction::ListPorts {
+        actions::list_ports::run()?;
+        std::process::exit(0);
     }
+
     drive(args).await?;
 
     Ok(())
@@ -51,7 +49,8 @@ async fn drive(args: args::Args) -> Result<()> {
                 if let Some(response) = response? {
                     match response {
                         ZippyResponse::End => break println!("end"),
-                        ZippyResponse::Message(message) => println!("{}", &message)
+                        ZippyResponse::ErrorMessage(message) => eprintln!("{message}"),
+                        ZippyResponse::Message(message) => println!("{message}")
                     }
                 }
             }

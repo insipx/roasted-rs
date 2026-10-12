@@ -1,8 +1,6 @@
 use esp_hal::uart::ConfigError;
 use thiserror::Error;
 
-pub type Result<T> = core::result::Result<T, Error>;
-
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Failed to start UART Writer {0}")]
@@ -11,7 +9,7 @@ pub enum Error {
     Serialization(#[from] postcard::Error),
     #[error("{0}")]
     Capacity(#[from] heapless::CapacityError),
-    #[error("Error reading/writing data to flash storage")]
+    #[error("Error reading/writing data to flash storage {0}")]
     Storage(#[from] StorageError),
 }
 
@@ -23,8 +21,6 @@ pub enum StorageError {
     Postcard(#[from] postcard::Error),
     #[error("error generating entropy for encrypted storage")]
     Rng,
-    #[error("The encrypted data partition does not exist. try re-flashing.")]
-    PartitionDoesNotExist,
     #[error("Error encrypting data for persistent storage")]
     Encryption(#[from] chacha20poly1305::Error),
 }

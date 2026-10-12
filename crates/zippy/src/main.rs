@@ -7,9 +7,9 @@ mod db;
 mod error;
 mod serial;
 
+use anyhow::Result;
 use embassy_executor::Spawner;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
-use error::Error;
 use esp_backtrace as _;
 use esp_hal::{
     clock::CpuClock,
@@ -39,7 +39,9 @@ async fn main(spawner: Spawner) -> () {
     let db = FlashStorage::new(peripherals.FLASH);
     let entropy = TrngSource::new(peripherals.RNG, peripherals.ADC1);
 
-    if let Err(e) = run(spawner, peripherals.TIMG0, peripherals.FROM_CPU_INTR0, rw, db, entropy).await {
+    if let Err(e) =
+        run(spawner, peripherals.TIMG0, peripherals.FROM_CPU_INTR0, rw, db, entropy).await
+    {
         panic!("Zippy failed: {e:?}");
     }
     core::future::pending::<()>().await;
@@ -52,7 +54,7 @@ async fn run(
     rw: esp_hal::uart::Uart<'static, esp_hal::Async>,
     db: FlashStorage<'static>,
     entropy: TrngSource<'static>,
-) -> Result<(), Error> {
+) -> Result<()> {
     let timg0 = TimerGroup::new(timer);
     esp_rtos::start(timg0.timer0, cpu);
 
