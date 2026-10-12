@@ -56,7 +56,6 @@ impl CommandExecutor {
                 self.db.put(db::Keys::SSID, ssid);
                 self.db.put(db::Keys::WIPW, password);
                 if let Err(e) = self.db.flush() {
-                    println!("sending err");
                     self.send(new_emessage(alloc::format!("Error while saving wifi to db {e}"))?)
                         .await?;
                 }
@@ -70,7 +69,6 @@ impl CommandExecutor {
     }
 
     async fn end(&mut self) -> Result<()> {
-        println!("ending");
         self.send(ZippyResponse::End).await?;
         Ok(())
     }
