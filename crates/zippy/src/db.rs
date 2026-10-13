@@ -27,6 +27,9 @@ const AEAD: &[u8; 16] = b"roasted/cred/v01";
 const MEM_SIZE: usize = 1536;
 const TREE_SIZE: usize = 1024;
 const HMAC_LABEL: &[u8; 29] = b"roasted/zippy/database-key/v1";
+const HEADER_SIZE: usize = 8;
+const DB_HEADER: &[u8; HEADER_SIZE] = b"ZIPPY_DB";
+const DB_START: u32 = 8;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct DbKey {
@@ -166,8 +169,28 @@ where
             _marker: PhantomData,
             key: key.inner,
         };
-        if let Err(e) = this.refresh() {
-            esp_println::println!("DB could not read persisted data, discarding {e}");
+
+        // try to read the header. if all bytes are 0xFF db is new
+        // if header doesn't match, corrupted b
+        // otherwise try to refresh values.
+        let mut buf = [0u8; HEADER_SIZE];
+        let mut region = this.as_region()?;
+        region.read(0, &mut buf)?;
+        if let Ok(header) = core::primitive::str::from_utf8(&buf) {
+            esp_println::println!("db header: `{header}`");
+        }
+        if buf.iter().all(|&byte| byte == 0xFF) {
+            esp_println::println!("brand new database");
+            region.write(0, DB_HEADER)?;
+            this.cache.clear();
+        } else if buf != *DB_HEADER {
+            // not the best but idc for now.
+            esp_println::println!("unknown/corrupted db. discarding and overwriting");
+            region.write(0, DB_HEADER)?;
+            this.cache.clear();
+            let _ = this.flush();
+        } else {
+            this.refresh()?;
         }
         for (k, v) in this.cache.iter() {
             if *k == Keys::WIPW {
@@ -176,7 +199,7 @@ where
                 // for now we only store string pairs. this will probably break. not worth
                 // expanding value types yet, we only need wifi pass.
                 let s = core::primitive::str::from_utf8(v.as_ref())
-                    .expect("whoops we dont handle non-UTF8 key values!");
+                    .expect("whoops we do not handle non-UTF8 key values!");
                 esp_println::println!("{}:{}", k, s);
             }
         }
@@ -191,7 +214,7 @@ where
     fn refresh(&mut self) -> Result<()> {
         let mut region = self.as_region()?;
         let mut buf = [0u8; MEM_SIZE];
-        region.read(0, &mut buf)?;
+        region.read(DB_START, &mut buf)?;
         let mut entry: Entry = postcard::from_bytes(&buf)
             .with_context(|| format!("failed reading persisted memory"))?;
         let cipher = XChaCha20Poly1305::new(&self.key);
@@ -224,7 +247,7 @@ where
         })?;
 
         let mut region = self.as_region()?;
-        region.write(0, &mut envelope)?;
+        region.write(DB_START, &mut envelope)?;
         Ok(())
     }
 }
