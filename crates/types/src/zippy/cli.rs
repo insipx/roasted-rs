@@ -18,6 +18,17 @@ pub enum CliAction {
     SetDaemonUrl(url::Url),
 }
 
+impl core::fmt::Display for CliAction {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        match self {
+            CliAction::SayHello => write!(f, "SayHello"),
+            CliAction::InitWifi(_) => write!(f, "InitWifi"),
+            CliAction::ListPorts => write!(f, "ListPorts"),
+            CliAction::SetDaemonUrl(_) => write!(f, "SetDaemonUrl")
+        }
+    }
+}
+
 /// Initializing Wifi
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Zeroize, Clone, Builder)]
 pub struct InitWifi {

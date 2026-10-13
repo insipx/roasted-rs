@@ -46,7 +46,7 @@ impl CommandExecutor {
 
     pub async fn next(&mut self) -> Result<()> {
         let action = self.rx.receive().await;
-        println!("Processing action {action:?}");
+        println!("Processing action");
         match action {
             CliAction::SayHello => {
                 self.send(new_message("Hello, this is Zippy!")?).await?;
