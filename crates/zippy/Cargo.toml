@@ -43,7 +43,6 @@ postcard.workspace = true
 roasted-types = { workspace = true, default-features = false, features = [
   "zippy",
 ] }
-sequential-storage = "8"
 serde.workspace = true
 static_cell.workspace = true
 thiserror = { version = "2", default-features = false }

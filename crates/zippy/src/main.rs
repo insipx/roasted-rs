@@ -13,11 +13,13 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channe
 use esp_backtrace as _;
 use esp_hal::{
     clock::CpuClock,
-    peripherals::{FROM_CPU_INTR0, TIMG0},
+    peripherals::{FROM_CPU_INTR0, HMAC, TIMG0},
     rng::TrngSource,
     timer::timg::TimerGroup,
 };
 use esp_storage::FlashStorage;
+
+use crate::db::EncryptionKey;
 
 extern crate alloc;
 
@@ -39,8 +41,16 @@ async fn main(spawner: Spawner) -> () {
     let db = FlashStorage::new(peripherals.FLASH);
     let entropy = TrngSource::new(peripherals.RNG, peripherals.ADC1);
 
-    if let Err(e) =
-        run(spawner, peripherals.TIMG0, peripherals.FROM_CPU_INTR0, rw, db, entropy).await
+    if let Err(e) = run(
+        spawner,
+        peripherals.TIMG0,
+        peripherals.FROM_CPU_INTR0,
+        rw,
+        db,
+        entropy,
+        peripherals.HMAC,
+    )
+    .await
     {
         panic!("Zippy failed: {e:?}");
     }
@@ -54,6 +64,7 @@ async fn run(
     rw: esp_hal::uart::Uart<'static, esp_hal::Async>,
     db: FlashStorage<'static>,
     entropy: TrngSource<'static>,
+    hmac: HMAC<'static>,
 ) -> Result<()> {
     let timg0 = TimerGroup::new(timer);
     esp_rtos::start(timg0.timer0, cpu);
@@ -64,8 +75,10 @@ async fn run(
     let (uart_rx, uart_tx) = rw.split();
     let uart = serial::UartCli::builder().uart_rx(uart_rx).tx(COMMANDS.dyn_sender()).build();
     spawner.spawn(serial::cli_driver(uart).unwrap());
+    let key = EncryptionKey::hmac(hmac)?;
     let cmds = actions::CommandExecutor::builder()
         .db(db)
+        .key(key)
         .entropy(entropy)
         .uart_tx(uart_tx)
         .rx(COMMANDS.dyn_receiver())

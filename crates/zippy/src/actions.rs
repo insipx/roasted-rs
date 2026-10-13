@@ -14,7 +14,7 @@ use postcard::{
 };
 use roasted_types::zippy::{CliAction, InitWifi, ZippyResponse};
 
-use crate::db::{self, Database};
+use crate::db::{self, Database, EncryptionKey};
 
 pub struct CommandExecutor {
     db: Database<'static, String>,
@@ -40,8 +40,9 @@ impl CommandExecutor {
         entropy: TrngSource<'static>,
         uart_tx: UartTx<'static, Async>,
         rx: DynamicReceiver<'static, CliAction>,
+        key: EncryptionKey,
     ) -> Result<Self> {
-        Ok(Self { db: Database::new(db, entropy)?, uart_tx, rx })
+        Ok(Self { db: Database::new(db, entropy, key)?, uart_tx, rx })
     }
 
     pub async fn next(&mut self) -> Result<()> {

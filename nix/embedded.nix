@@ -31,6 +31,7 @@
           xtensaToolchain
           inputs'.esp-nix.packages.esp-idf-xtensa.tools.xtensa-esp-elf
           pkgs.espflash
+          pkgs.esptool
           pkgs.qemu-esp32
           pkgs.just
         ];

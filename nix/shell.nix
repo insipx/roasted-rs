@@ -13,6 +13,7 @@ let
       diesel-cli,
       sqlite,
       espflash,
+      esptool,
       ldproxy,
       picocom,
       just,
@@ -30,6 +31,7 @@ let
         cargo-generate
         local.cargo-espflash
         espflash
+        esptool
         ldproxy
         diesel-cli
         sqlite

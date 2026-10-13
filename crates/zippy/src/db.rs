@@ -2,7 +2,7 @@
 use alloc::{collections::BTreeMap, format};
 use core::{marker::PhantomData, ops::Deref};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use chacha20poly1305::{
     XChaCha20Poly1305, XNonce,
     aead::{AeadInOut, Key, KeyInit, arrayvec::ArrayVec},
@@ -11,7 +11,11 @@ use crypto_common::Generate;
 use esp_bootloader_esp_idf::partitions::{
     DataPartitionSubType, FlashRegion, PartitionType, read_partition_table,
 };
-use esp_hal::rng::{Trng, TrngSource};
+use esp_hal::{
+    hmac::{Hmac, HmacPurpose, KeyId},
+    peripherals::Peripherals,
+    rng::{Trng, TrngSource},
+};
 use esp_storage::FlashStorage;
 use postcard::experimental::serialized_size;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -22,6 +26,7 @@ const CURRENT_VERSION: u8 = 1;
 const AEAD: &[u8; 16] = b"roasted/cred/v01";
 const MEM_SIZE: usize = 1536;
 const TREE_SIZE: usize = 1024;
+const HMAC_LABEL: &[u8; 29] = b"roasted/zippy/database-key/v1";
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct DbKey {
@@ -54,13 +59,19 @@ impl Deref for DbKey {
     }
 }
 
-// need to always load tree from flash on creation
+// TODO: Protect against power faults. if a power fault occurs
+// mid write we will need to re-provision.
+// for now the worst that happens is re provisioning.
+// the db is ok for what we need for now.
+// should consider some kind of A/B version update strategy.
+// or `sequential-storage`` i guess.
 pub struct Database<'a, V> {
     db: FlashStorage<'a>,
     _marker: PhantomData<V>,
     cache: BTreeMap<DbKey, V>,
-    entropy: TrngSource<'a>,
     rng: Trng,
+    entropy: TrngSource<'a>,
+    key: Key<XChaCha20Poly1305>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -91,6 +102,42 @@ impl<'a, V> Database<'a, V> {
     }
 }
 
+pub struct EncryptionKey {
+    inner: Key<XChaCha20Poly1305>,
+}
+
+impl EncryptionKey {
+    /// Use the hardcoded debug key (for debugging only)
+    #[cfg(feature = "debug")]
+    pub fn debug() -> Self {
+        let mut key = [0u8; 32];
+        hex::decode_to_slice(
+            "e089b4470197061b0dd9e8bd3ae94967299d385276028d1016687f07b6f7b5ed",
+            &mut key,
+        )
+        .expect("static decode works");
+
+        Self { inner: key.into() }
+    }
+
+    /// Use an hmac key derived from BLOCK0 of eFuse
+    pub fn hmac(hmac: esp_hal::peripherals::HMAC) -> Result<Self> {
+        let mut hmac = Hmac::new(hmac);
+        hmac.init();
+        nb::block!(hmac.configure(HmacPurpose::ToUser, KeyId::Key0))
+            .map_err(|_| anyhow!("configuring hmac block failed"))?;
+
+        let mut remaining: &[u8] = &HMAC_LABEL.clone();
+        while !remaining.is_empty() {
+            remaining = nb::block!(hmac.update(remaining))?;
+        }
+
+        let mut db_key = [0u8; 32];
+        nb::block!(hmac.finalize(&mut db_key))?;
+        Ok(Self { inner: db_key.into() })
+    }
+}
+
 impl<V> Database<'_, V> {
     pub fn put(&mut self, key: DbKey, value: V) {
         let _ = self.cache.insert(key, value);
@@ -105,10 +152,20 @@ impl<'a, V> Database<'a, V>
 where
     V: DeserializeOwned + Serialize + AsRef<[u8]>,
 {
-    pub fn new(flash: FlashStorage<'a>, entropy: TrngSource<'a>) -> Result<Self> {
+    pub fn new(
+        flash: FlashStorage<'a>,
+        entropy: TrngSource<'a>,
+        key: EncryptionKey,
+    ) -> Result<Self> {
         let rng = Trng::try_new().map_err(|_| StorageError::Rng)?;
-        let mut this =
-            Self { db: flash, cache: Default::default(), rng, entropy, _marker: PhantomData };
+        let mut this = Self {
+            db: flash,
+            cache: Default::default(),
+            rng,
+            entropy,
+            _marker: PhantomData,
+            key: key.inner,
+        };
         if let Err(e) = this.refresh() {
             esp_println::println!("DB could not read persisted data, discarding {e}");
         }
@@ -126,17 +183,6 @@ where
         Ok(this)
     }
 
-    #[cfg(feature = "debug")]
-    fn key(&mut self) -> Key<XChaCha20Poly1305> {
-        let mut key = [0u8; 32];
-        hex::decode_to_slice(
-            "e089b4470197061b0dd9e8bd3ae94967299d385276028d1016687f07b6f7b5ed",
-            &mut key,
-        )
-        .expect("static decode works");
-        key.into()
-    }
-
     #[cfg(not(feature = "debug"))]
     fn key(&mut self) -> Key<XChaCha20Poly1305> {
         Key::<XChaCha20Poly1305>::generate_from_rng(&mut self.rng)
@@ -146,10 +192,9 @@ where
         let mut region = self.as_region()?;
         let mut buf = [0u8; MEM_SIZE];
         region.read(0, &mut buf)?;
-        let key = self.key();
         let mut entry: Entry = postcard::from_bytes(&buf)
             .with_context(|| format!("failed reading persisted memory"))?;
-        let cipher = XChaCha20Poly1305::new(&key);
+        let cipher = XChaCha20Poly1305::new(&self.key);
         cipher.decrypt_in_place(&entry.nonce.into(), &entry.auth_tag, &mut entry.ciphertext)?;
         let tree: BTreeMap<DbKey, V> = postcard::from_bytes(&entry.ciphertext)?;
         let _ = core::mem::replace(&mut self.cache, tree);
@@ -166,8 +211,7 @@ where
             )
         })?;
         let nonce = self.nonce();
-        let key = self.key();
-        let cipher = XChaCha20Poly1305::new(&key);
+        let cipher = XChaCha20Poly1305::new(&self.key);
         cipher.encrypt_in_place(&nonce, AEAD, &mut tree)?;
         let envelope_bytes =
             Entry { version: CURRENT_VERSION, nonce: nonce.0, ciphertext: tree, auth_tag: *AEAD };
