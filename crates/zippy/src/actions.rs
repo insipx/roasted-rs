@@ -63,7 +63,13 @@ impl CommandExecutor {
                 self.send(new_message("written")?).await?;
             }
             CliAction::ListPorts => todo!(),
-            CliAction::SetDaemonUrl(_) => todo!(),
+            CliAction::SetDaemonUrl(u) => {
+                self.db.put(db::Keys::DURL, u.to_string());
+                if let Err(e) = self.db.flush() {
+                    self.send(new_emessage(alloc::format!("Error saving daemon url {e}"))?).await?;
+                }
+                self.send(new_message(alloc::format!("wrote {u}"))?).await?;
+            }
         }
         self.end().await?;
         Ok(())

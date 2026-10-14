@@ -1,5 +1,5 @@
 //! Storage for Zippy to persist things
-use alloc::{collections::BTreeMap, format};
+use alloc::{collections::BTreeMap, format, sync::Arc};
 use core::{marker::PhantomData, ops::Deref};
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -8,12 +8,12 @@ use chacha20poly1305::{
     aead::{AeadInOut, Key, KeyInit, arrayvec::ArrayVec},
 };
 use crypto_common::Generate;
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, rwlock::RwLock};
 use esp_bootloader_esp_idf::partitions::{
     DataPartitionSubType, FlashRegion, PartitionType, read_partition_table,
 };
 use esp_hal::{
     hmac::{Hmac, HmacPurpose, KeyId},
-    peripherals::Peripherals,
     rng::{Trng, TrngSource},
 };
 use esp_storage::FlashStorage;
@@ -30,6 +30,8 @@ const HMAC_LABEL: &[u8; 29] = b"roasted/zippy/database-key/v1";
 const HEADER_SIZE: usize = 8;
 const DB_HEADER: &[u8; HEADER_SIZE] = b"ZIPPY_DB";
 const DB_START: u32 = 8;
+
+type Lock<T> = Arc<RwLock<CriticalSectionRawMutex, BTreeMap<DbKey, T>>>;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct DbKey {
@@ -62,6 +64,18 @@ impl Deref for DbKey {
     }
 }
 
+/// Read-only db
+pub struct DbReader<V> {
+    inner: Lock<V>,
+}
+
+impl<V> DbReader<V> {
+    pub async fn get(&self, key: &DbKey) -> Option<&V> {
+        let read = self.inner.read().await;
+        read.get(key)
+    }
+}
+
 // TODO: Protect against power faults. if a power fault occurs
 // mid write we will need to re-provision.
 // for now the worst that happens is re provisioning.
@@ -71,7 +85,7 @@ impl Deref for DbKey {
 pub struct Database<'a, V> {
     db: FlashStorage<'a>,
     _marker: PhantomData<V>,
-    cache: BTreeMap<DbKey, V>,
+    cache: Lock<V>,
     rng: Trng,
     entropy: TrngSource<'a>,
     key: Key<XChaCha20Poly1305>,
@@ -102,6 +116,10 @@ impl<'a, V> Database<'a, V> {
     /// Generate a new nonce
     fn nonce(&mut self) -> XNonce {
         XNonce::generate_from_rng(&mut self.rng)
+    }
+
+    fn reader(&self) -> DbReader<V> {
+        DbReader { inner: self.cache.clone() }
     }
 }
 
@@ -142,12 +160,14 @@ impl EncryptionKey {
 }
 
 impl<V> Database<'_, V> {
-    pub fn put(&mut self, key: DbKey, value: V) {
-        let _ = self.cache.insert(key, value);
+    pub async fn put(&mut self, key: DbKey, value: V) {
+        let mut cache = self.cache.write().await;
+        let _ = cache.insert(key, value);
     }
 
-    pub fn get(&self, key: &DbKey) -> Option<&V> {
-        self.cache.get(key)
+    pub async fn get(&self, key: &DbKey) -> Option<&V> {
+        let cache = self.cache.read().await;
+        cache.get(key)
     }
 }
 
@@ -200,7 +220,7 @@ where
                 // expanding value types yet, we only need wifi pass.
                 let s = core::primitive::str::from_utf8(v.as_ref())
                     .expect("whoops we do not handle non-UTF8 key values!");
-                esp_println::println!("{}:{}", k, s);
+                esp_println::println!("{} : {}", k, s);
             }
         }
         Ok(this)
@@ -258,6 +278,8 @@ impl Keys {
     pub const SSID: DbKey = DbKey::new(*b"SSID");
     /// WiFi Password
     pub const WIPW: DbKey = DbKey::new(*b"WIPW");
+    /// URL of the roasted-rs ws daemon
+    pub const DURL: DbKey = DbKey::new(*b"DURL");
     /// Misc
     pub const MISC: DbKey = DbKey::new(*b"MISC");
 }

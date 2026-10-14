@@ -27,6 +27,8 @@ enum Command {
     InitWifi,
     /// List available ports
     ListPorts,
+    /// Set the URL for the roasted-rs daemon
+    SetDaemonUrl,
 }
 
 impl FromStr for Command {
@@ -35,6 +37,9 @@ impl FromStr for Command {
         match s {
             "SayHello" | "sayhello" | "hello" | "say-hello" | "say_hello" => Ok(Self::SayHello),
             "InitWifi" | "init_wifi" | "init-wifi" | "initwifi" | "wifi" => Ok(Self::InitWifi),
+            "SetDaemonurl" | "set_daemon_url" | "set-daemon-url" | "setdaemonurl" => {
+                Ok(Self::SetDaemonUrl)
+            }
             "ListPorts" | "list_ports" | "list-ports" | "listports" | "ports" => {
                 Ok(Self::ListPorts)
             }
@@ -69,6 +74,29 @@ fn parse_wifi(parser: &mut Parser) -> Result<CliAction> {
     Ok(CliAction::InitWifi(InitWifi::builder().ssid(ssid).password(password).build()))
 }
 
+fn parse_durl(parser: &mut Parser) -> Result<CliAction> {
+    let mut url = None;
+
+    while let Some(args) = parser.next()? {
+        match args {
+            Short('u') | Long("url") => {
+                url = Some(parser.value()?.parse().wrap_err(err("url"))?);
+            }
+            Short('h') | Long("help") => {
+                println!("Usage: zippy-cli [-d|--device STRING] set-daemon-url [-u|--url=URL]");
+                std::process::exit(0);
+            }
+            _ => bail!(args.unexpected()),
+        }
+    }
+
+    let Some(url) = url else {
+        bail!("`url` must be specified with `-u` or `--url`");
+    };
+
+    Ok(CliAction::SetDaemonUrl(url))
+}
+
 pub fn parse_args() -> Result<Args> {
     let mut parser = lexopt::Parser::from_env();
 
@@ -85,6 +113,7 @@ pub fn parse_args() -> Result<Args> {
                     Command::SayHello => Some(CliAction::SayHello),
                     Command::InitWifi => Some(parse_wifi(&mut parser)?),
                     Command::ListPorts => Some(CliAction::ListPorts),
+                    Command::SetDaemonUrl => Some(parse_durl(&mut parser)?),
                 };
                 break;
             }
