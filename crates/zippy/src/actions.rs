@@ -54,16 +54,22 @@ impl CommandExecutor {
             }
             CliAction::InitWifi(w) => {
                 let InitWifi { ssid, password } = w;
-                self.db.put(db::Keys::SSID, ssid);
-                self.db.put(db::Keys::WIPW, password);
-                if let Err(e) = self.db.flush() {
+                self.db.put(db::Keys::SSID, ssid).await;
+                self.db.put(db::Keys::WIPW, password).await;
+                if let Err(e) = self.db.flush().await {
                     self.send(new_emessage(alloc::format!("Error while saving wifi to db {e}"))?)
                         .await?;
                 }
                 self.send(new_message("written")?).await?;
             }
             CliAction::ListPorts => todo!(),
-            CliAction::SetDaemonUrl(_) => todo!(),
+            CliAction::SetDaemonUrl(u) => {
+                self.db.put(db::Keys::DURL, u.to_string()).await;
+                if let Err(e) = self.db.flush().await {
+                    self.send(new_emessage(alloc::format!("Error saving daemon url {e}"))?).await?;
+                }
+                self.send(new_message(alloc::format!("wrote {u}"))?).await?;
+            }
         }
         self.end().await?;
         Ok(())

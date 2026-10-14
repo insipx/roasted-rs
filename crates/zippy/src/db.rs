@@ -1,5 +1,5 @@
 //! Storage for Zippy to persist things
-use alloc::{collections::BTreeMap, format};
+use alloc::{collections::BTreeMap, format, sync::Arc};
 use core::{marker::PhantomData, ops::Deref};
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -8,12 +8,15 @@ use chacha20poly1305::{
     aead::{AeadInOut, Key, KeyInit, arrayvec::ArrayVec},
 };
 use crypto_common::Generate;
+use embassy_sync::{
+    blocking_mutex::raw::CriticalSectionRawMutex,
+    rwlock::{RwLock, RwLockReadGuard},
+};
 use esp_bootloader_esp_idf::partitions::{
     DataPartitionSubType, FlashRegion, PartitionType, read_partition_table,
 };
 use esp_hal::{
     hmac::{Hmac, HmacPurpose, KeyId},
-    peripherals::Peripherals,
     rng::{Trng, TrngSource},
 };
 use esp_storage::FlashStorage;
@@ -30,6 +33,8 @@ const HMAC_LABEL: &[u8; 29] = b"roasted/zippy/database-key/v1";
 const HEADER_SIZE: usize = 8;
 const DB_HEADER: &[u8; HEADER_SIZE] = b"ZIPPY_DB";
 const DB_START: u32 = 8;
+
+type Lock<T> = Arc<RwLock<CriticalSectionRawMutex, BTreeMap<DbKey, T>>>;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct DbKey {
@@ -62,6 +67,28 @@ impl Deref for DbKey {
     }
 }
 
+/// Read-only db
+pub struct DbReader<V> {
+    inner: Lock<V>,
+}
+
+impl<V> DbReader<V> {
+    pub async fn read(&self) -> DbReadView<'_, V> {
+        DbReadView { guard: self.inner.read().await }
+    }
+}
+
+/// A view into the db.
+pub struct DbReadView<'a, V> {
+    guard: RwLockReadGuard<'a, CriticalSectionRawMutex, BTreeMap<DbKey, V>>,
+}
+
+impl<V> DbReadView<'_, V> {
+    pub fn get(&self, key: &DbKey) -> Option<&V> {
+        self.guard.get(key)
+    }
+}
+
 // TODO: Protect against power faults. if a power fault occurs
 // mid write we will need to re-provision.
 // for now the worst that happens is re provisioning.
@@ -71,7 +98,7 @@ impl Deref for DbKey {
 pub struct Database<'a, V> {
     db: FlashStorage<'a>,
     _marker: PhantomData<V>,
-    cache: BTreeMap<DbKey, V>,
+    cache: Lock<V>,
     rng: Trng,
     entropy: TrngSource<'a>,
     key: Key<XChaCha20Poly1305>,
@@ -102,6 +129,10 @@ impl<'a, V> Database<'a, V> {
     /// Generate a new nonce
     fn nonce(&mut self) -> XNonce {
         XNonce::generate_from_rng(&mut self.rng)
+    }
+
+    pub fn reader(&self) -> DbReader<V> {
+        DbReader { inner: self.cache.clone() }
     }
 }
 
@@ -142,12 +173,13 @@ impl EncryptionKey {
 }
 
 impl<V> Database<'_, V> {
-    pub fn put(&mut self, key: DbKey, value: V) {
-        let _ = self.cache.insert(key, value);
+    pub async fn put(&mut self, key: DbKey, value: V) {
+        let mut cache = self.cache.write().await;
+        let _ = cache.insert(key, value);
     }
 
-    pub fn get(&self, key: &DbKey) -> Option<&V> {
-        self.cache.get(key)
+    pub async fn read(&self) -> DbReadView<'_, V> {
+        DbReadView { guard: self.cache.read().await }
     }
 }
 
@@ -169,6 +201,7 @@ where
             _marker: PhantomData,
             key: key.inner,
         };
+        let mut cache: BTreeMap<DbKey, V> = BTreeMap::default();
 
         // try to read the header. if all bytes are 0xFF db is new
         // if header doesn't match, corrupted b
@@ -182,17 +215,17 @@ where
         if buf.iter().all(|&byte| byte == 0xFF) {
             esp_println::println!("brand new database");
             region.write(0, DB_HEADER)?;
-            this.cache.clear();
+            cache.clear();
         } else if buf != *DB_HEADER {
             // not the best but idc for now.
             esp_println::println!("unknown/corrupted db. discarding and overwriting");
             region.write(0, DB_HEADER)?;
-            this.cache.clear();
+            cache.clear();
             let _ = this.flush();
         } else {
-            this.refresh()?;
+            cache = this.refresh()?;
         }
-        for (k, v) in this.cache.iter() {
+        for (k, v) in cache.iter() {
             if *k == Keys::WIPW {
                 esp_println::println!("{k}: ***");
             } else {
@@ -200,9 +233,10 @@ where
                 // expanding value types yet, we only need wifi pass.
                 let s = core::primitive::str::from_utf8(v.as_ref())
                     .expect("whoops we do not handle non-UTF8 key values!");
-                esp_println::println!("{}:{}", k, s);
+                esp_println::println!("{} : {}", k, s);
             }
         }
+        this.cache = Arc::new(RwLock::new(cache));
         Ok(this)
     }
 
@@ -211,7 +245,7 @@ where
         Key::<XChaCha20Poly1305>::generate_from_rng(&mut self.rng)
     }
 
-    fn refresh(&mut self) -> Result<()> {
+    fn refresh(&mut self) -> Result<BTreeMap<DbKey, V>> {
         let mut region = self.as_region()?;
         let mut buf = [0u8; MEM_SIZE];
         region.read(DB_START, &mut buf)?;
@@ -220,19 +254,21 @@ where
         let cipher = XChaCha20Poly1305::new(&self.key);
         cipher.decrypt_in_place(&entry.nonce.into(), &entry.auth_tag, &mut entry.ciphertext)?;
         let tree: BTreeMap<DbKey, V> = postcard::from_bytes(&entry.ciphertext)?;
-        let _ = core::mem::replace(&mut self.cache, tree);
-        Ok(())
+        Ok(tree)
     }
 
     /// Flush the DB, persisting all values.
-    pub fn flush(&mut self) -> Result<()> {
+    pub async fn flush(&mut self) -> Result<()> {
         let tree: ArrayVec<u8, TREE_SIZE> = ArrayVec::new();
-        let mut tree = postcard::to_extend(&self.cache, tree).with_context(|| {
-            format!(
-                "failed to persist memory (size {}) to tree slice",
-                serialized_size(&self.cache).expect("hope it works")
-            )
-        })?;
+        let mut tree = {
+        let cache = self.cache.read().await;
+            postcard::to_extend(&*cache, tree).with_context(|| {
+                format!(
+                    "failed to persist memory (size {}) to tree slice",
+                    serialized_size(&*cache).expect("hope it works")
+                )
+            })
+        }?;
         let nonce = self.nonce();
         let cipher = XChaCha20Poly1305::new(&self.key);
         cipher.encrypt_in_place(&nonce, AEAD, &mut tree)?;
@@ -258,6 +294,8 @@ impl Keys {
     pub const SSID: DbKey = DbKey::new(*b"SSID");
     /// WiFi Password
     pub const WIPW: DbKey = DbKey::new(*b"WIPW");
+    /// URL of the roasted-rs ws daemon
+    pub const DURL: DbKey = DbKey::new(*b"DURL");
     /// Misc
     pub const MISC: DbKey = DbKey::new(*b"MISC");
 }
