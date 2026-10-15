@@ -1,11 +1,10 @@
-//! Processes actions
+//! Processes actions received over internal message channel
 use alloc::string::{String, ToString};
 
 use anyhow::Result;
 use bon::bon;
 use embassy_sync::channel::DynamicReceiver;
 use embedded_io_async::Write;
-use esp_bootloader_esp_idf::partitions::FlashStorage;
 use esp_hal::{Async, uart::UartTx};
 use esp_println::println;
 use postcard::{
@@ -14,7 +13,7 @@ use postcard::{
 };
 use roasted_types::zippy::{CliAction, InitWifi, ZippyResponse};
 
-use crate::db::{self, Database, EncryptionKey};
+use crate::db::{self, Database};
 
 pub struct CommandExecutor {
     db: Database<'static, String>,

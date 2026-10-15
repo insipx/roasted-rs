@@ -3,40 +3,26 @@ use alloc::{collections::BTreeMap, format, sync::Arc};
 use core::{marker::PhantomData, ops::Deref};
 
 use anyhow::{Context, Result, bail};
-use chacha20poly1305::{
-    XChaCha20Poly1305,
-    aead::Key,
-};
-use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex,
-    rwlock::RwLock,
-};
+use arrayvec::ArrayVec;
+use chacha20poly1305::{AeadInOut, XChaCha20Poly1305, aead::Key};
+use crypto_common::KeyInit;
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, rwlock::RwLock};
 use esp_bootloader_esp_idf::partitions::{
     DataPartitionSubType, FlashRegion, PartitionType, read_partition_table,
 };
 use esp_hal::rng::Trng;
-use chacha20poly1305::AeadInOut;
-use crypto_common::KeyInit;
-use arrayvec::ArrayVec;
 use esp_storage::FlashStorage;
 use postcard::experimental::serialized_size;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::error::StorageError;
 
-mod read;
 mod encryption;
+mod read;
 pub use encryption::*;
 pub use read::*;
 
-const CURRENT_VERSION: u8 = 1;
-const AEAD: &[u8; 16] = b"roasted/cred/v01";
-const MEM_SIZE: usize = 1536;
-const TREE_SIZE: usize = 1024;
-const HMAC_LABEL: &[u8; 29] = b"roasted/zippy/database-key/v1";
-const HEADER_SIZE: usize = 8;
-const DB_HEADER: &[u8; HEADER_SIZE] = b"ZIPPY_DB";
-const DB_START: u32 = 8;
+use crate::configuration::db::*;
 
 type Lock<T> = Arc<RwLock<CriticalSectionRawMutex, BTreeMap<DbKey, T>>>;
 
@@ -70,8 +56,6 @@ impl Deref for DbKey {
         &self.inner
     }
 }
-
-
 
 // TODO: Protect against power faults. if a power fault occurs
 // mid write we will need to re-provision.
@@ -114,7 +98,6 @@ impl<'a, V> Database<'a, V> {
     }
 }
 
-
 impl<V> Database<'_, V> {
     pub async fn put(&mut self, key: DbKey, value: V) {
         let mut cache = self.cache.write().await;
@@ -130,17 +113,13 @@ impl<'a, V> Database<'a, V>
 where
     V: DeserializeOwned + Serialize + AsRef<[u8]>,
 {
-    pub fn new(
-        flash: FlashStorage<'a>,
-        key: EncryptionKey,
-    ) -> Result<Self> {
+    pub fn new(flash: FlashStorage<'a>, key: EncryptionKey) -> Result<Self> {
         let rng = Trng::try_new().map_err(|_| StorageError::Rng)?;
         let mut this = Self {
             db: flash,
             cache: Default::default(),
             rng,
-            _marker:
-            PhantomData,
+            _marker: PhantomData,
             key: key.inner,
         };
         let mut cache: BTreeMap<DbKey, V> = BTreeMap::default();
@@ -198,7 +177,7 @@ where
     pub async fn flush(&mut self) -> Result<()> {
         let tree: ArrayVec<u8, TREE_SIZE> = ArrayVec::new();
         let mut tree = {
-        let cache = self.cache.read().await;
+            let cache = self.cache.read().await;
             postcard::to_extend(&*cache, tree).with_context(|| {
                 format!(
                     "failed to persist memory (size {}) to tree slice",

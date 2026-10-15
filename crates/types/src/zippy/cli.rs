@@ -4,6 +4,8 @@ use bon::Builder;
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
+// if gonig to add a fn to set hostname, make sure to check bounds (max 32char)
+
 /// Possible actions to configure/interact with Zippy over a USB Serial interface
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum CliAction {
@@ -24,7 +26,7 @@ impl core::fmt::Display for CliAction {
             CliAction::SayHello => write!(f, "SayHello"),
             CliAction::InitWifi(_) => write!(f, "InitWifi"),
             CliAction::ListPorts => write!(f, "ListPorts"),
-            CliAction::SetDaemonUrl(_) => write!(f, "SetDaemonUrl")
+            CliAction::SetDaemonUrl(_) => write!(f, "SetDaemonUrl"),
         }
     }
 }

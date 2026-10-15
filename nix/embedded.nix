@@ -8,6 +8,7 @@
         inputs'.esp-nix.packages.esp-rustc
         inputs'.esp-nix.packages.esp-rustc-src
         pkgs.fenix.minimal.cargo
+        pkgs.fenix.default.rustfmt
       ];
 
       bootstrapCrane = (inputs.crane.mkLib pkgs).overrideToolchain bootstrapToolchain;
@@ -30,6 +31,7 @@
         packages = [
           xtensaToolchain
           inputs'.esp-nix.packages.esp-idf-xtensa.tools.xtensa-esp-elf
+          pkgs.fenix.rust-analyzer
           pkgs.espflash
           pkgs.esptool
           pkgs.qemu-esp32

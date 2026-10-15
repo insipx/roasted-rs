@@ -1,14 +1,10 @@
-use super::HMAC_LABEL;
-use chacha20poly1305::{
-    XChaCha20Poly1305, XNonce,
-    aead::Key,
-};
-use esp_hal::{
-    hmac::{Hmac, HmacPurpose, KeyId},
-};
-use anyhow::{anyhow, Result};
-use super::Database;
+use anyhow::{Result, anyhow};
+use chacha20poly1305::{XChaCha20Poly1305, XNonce, aead::Key};
 use crypto_common::Generate;
+use esp_hal::hmac::{Hmac, HmacPurpose, KeyId};
+
+use super::Database;
+use crate::configuration::db::HMAC_LABEL;
 
 pub struct EncryptionKey {
     pub(super) inner: Key<XChaCha20Poly1305>,

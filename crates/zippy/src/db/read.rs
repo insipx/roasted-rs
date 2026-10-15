@@ -1,7 +1,8 @@
-use super::{Lock, DbKey};
-use embassy_sync::rwlock::RwLockReadGuard;
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use alloc::collections::BTreeMap;
+
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, rwlock::RwLockReadGuard};
+
+use super::{DbKey, Lock};
 
 /// Read-only db
 pub struct DbReader<V> {

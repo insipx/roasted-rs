@@ -55,7 +55,7 @@ impl Stream for CobsStream {
                     FeedResult::DeserError(new_wind) => {
                         eprintln!("deserialization failed");
                         new_wind
-                    },
+                    }
                     FeedResult::Success { data, remaining } => {
                         let len = remaining.len();
                         let start = ct - len;
