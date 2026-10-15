@@ -2,28 +2,32 @@
 use alloc::{collections::BTreeMap, format, sync::Arc};
 use core::{marker::PhantomData, ops::Deref};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 use chacha20poly1305::{
-    XChaCha20Poly1305, XNonce,
-    aead::{AeadInOut, Key, KeyInit, arrayvec::ArrayVec},
+    XChaCha20Poly1305,
+    aead::Key,
 };
-use crypto_common::Generate;
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex,
-    rwlock::{RwLock, RwLockReadGuard},
+    rwlock::RwLock,
 };
 use esp_bootloader_esp_idf::partitions::{
     DataPartitionSubType, FlashRegion, PartitionType, read_partition_table,
 };
-use esp_hal::{
-    hmac::{Hmac, HmacPurpose, KeyId},
-    rng::{Trng, TrngSource},
-};
+use esp_hal::rng::Trng;
+use chacha20poly1305::AeadInOut;
+use crypto_common::KeyInit;
+use arrayvec::ArrayVec;
 use esp_storage::FlashStorage;
 use postcard::experimental::serialized_size;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::error::StorageError;
+
+mod read;
+mod encryption;
+pub use encryption::*;
+pub use read::*;
 
 const CURRENT_VERSION: u8 = 1;
 const AEAD: &[u8; 16] = b"roasted/cred/v01";
@@ -67,27 +71,7 @@ impl Deref for DbKey {
     }
 }
 
-/// Read-only db
-pub struct DbReader<V> {
-    inner: Lock<V>,
-}
 
-impl<V> DbReader<V> {
-    pub async fn read(&self) -> DbReadView<'_, V> {
-        DbReadView { guard: self.inner.read().await }
-    }
-}
-
-/// A view into the db.
-pub struct DbReadView<'a, V> {
-    guard: RwLockReadGuard<'a, CriticalSectionRawMutex, BTreeMap<DbKey, V>>,
-}
-
-impl<V> DbReadView<'_, V> {
-    pub fn get(&self, key: &DbKey) -> Option<&V> {
-        self.guard.get(key)
-    }
-}
 
 // TODO: Protect against power faults. if a power fault occurs
 // mid write we will need to re-provision.
@@ -100,7 +84,6 @@ pub struct Database<'a, V> {
     _marker: PhantomData<V>,
     cache: Lock<V>,
     rng: Trng,
-    entropy: TrngSource<'a>,
     key: Key<XChaCha20Poly1305>,
 }
 
@@ -126,51 +109,11 @@ impl<'a, V> Database<'a, V> {
         Ok(db.as_flash_region(&mut self.db))
     }
 
-    /// Generate a new nonce
-    fn nonce(&mut self) -> XNonce {
-        XNonce::generate_from_rng(&mut self.rng)
-    }
-
     pub fn reader(&self) -> DbReader<V> {
         DbReader { inner: self.cache.clone() }
     }
 }
 
-pub struct EncryptionKey {
-    inner: Key<XChaCha20Poly1305>,
-}
-
-impl EncryptionKey {
-    /// Use the hardcoded debug key (for debugging only)
-    #[cfg(feature = "debug")]
-    pub fn debug() -> Self {
-        let mut key = [0u8; 32];
-        hex::decode_to_slice(
-            "e089b4470197061b0dd9e8bd3ae94967299d385276028d1016687f07b6f7b5ed",
-            &mut key,
-        )
-        .expect("static decode works");
-
-        Self { inner: key.into() }
-    }
-
-    /// Use an hmac key derived from BLOCK0 of eFuse
-    pub fn hmac(hmac: esp_hal::peripherals::HMAC) -> Result<Self> {
-        let mut hmac = Hmac::new(hmac);
-        hmac.init();
-        nb::block!(hmac.configure(HmacPurpose::ToUser, KeyId::Key0))
-            .map_err(|_| anyhow!("configuring hmac block failed"))?;
-
-        let mut remaining: &[u8] = &HMAC_LABEL.clone();
-        while !remaining.is_empty() {
-            remaining = nb::block!(hmac.update(remaining))?;
-        }
-
-        let mut db_key = [0u8; 32];
-        nb::block!(hmac.finalize(&mut db_key))?;
-        Ok(Self { inner: db_key.into() })
-    }
-}
 
 impl<V> Database<'_, V> {
     pub async fn put(&mut self, key: DbKey, value: V) {
@@ -189,7 +132,6 @@ where
 {
     pub fn new(
         flash: FlashStorage<'a>,
-        entropy: TrngSource<'a>,
         key: EncryptionKey,
     ) -> Result<Self> {
         let rng = Trng::try_new().map_err(|_| StorageError::Rng)?;
@@ -197,8 +139,8 @@ where
             db: flash,
             cache: Default::default(),
             rng,
-            entropy,
-            _marker: PhantomData,
+            _marker:
+            PhantomData,
             key: key.inner,
         };
         let mut cache: BTreeMap<DbKey, V> = BTreeMap::default();
@@ -238,11 +180,6 @@ where
         }
         this.cache = Arc::new(RwLock::new(cache));
         Ok(this)
-    }
-
-    #[cfg(not(feature = "debug"))]
-    fn key(&mut self) -> Key<XChaCha20Poly1305> {
-        Key::<XChaCha20Poly1305>::generate_from_rng(&mut self.rng)
     }
 
     fn refresh(&mut self) -> Result<BTreeMap<DbKey, V>> {

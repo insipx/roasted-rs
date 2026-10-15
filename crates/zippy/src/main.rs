@@ -19,7 +19,7 @@ use esp_hal::{
 };
 use esp_storage::FlashStorage;
 
-use crate::db::EncryptionKey;
+use crate::db::{EncryptionKey, Database};
 
 extern crate alloc;
 
@@ -39,7 +39,8 @@ async fn main(spawner: Spawner) -> () {
         .into_async();
 
     let db = FlashStorage::new(peripherals.FLASH);
-    let entropy = TrngSource::new(peripherals.RNG, peripherals.ADC1);
+    // need to register a TrngSource and keep it alive during execution.
+    let _entropy = TrngSource::new(peripherals.RNG, peripherals.ADC1);
 
     if let Err(e) = run(
         spawner,
@@ -47,7 +48,6 @@ async fn main(spawner: Spawner) -> () {
         peripherals.FROM_CPU_INTR0,
         rw,
         db,
-        entropy,
         peripherals.HMAC,
     )
     .await
@@ -63,7 +63,6 @@ async fn run(
     cpu: FROM_CPU_INTR0<'static>,
     rw: esp_hal::uart::Uart<'static, esp_hal::Async>,
     db: FlashStorage<'static>,
-    entropy: TrngSource<'static>,
     hmac: HMAC<'static>,
 ) -> Result<()> {
     let timg0 = TimerGroup::new(timer);
@@ -76,10 +75,9 @@ async fn run(
     let uart = serial::UartCli::builder().uart_rx(uart_rx).tx(COMMANDS.dyn_sender()).build();
     spawner.spawn(serial::cli_driver(uart).unwrap());
     let key = EncryptionKey::hmac(hmac)?;
+    let db = Database::new(db, key)?;
     let cmds = actions::CommandExecutor::builder()
         .db(db)
-        .key(key)
-        .entropy(entropy)
         .uart_tx(uart_tx)
         .rx(COMMANDS.dyn_receiver())
         .build()?;

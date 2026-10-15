@@ -6,7 +6,7 @@ use bon::bon;
 use embassy_sync::channel::DynamicReceiver;
 use embedded_io_async::Write;
 use esp_bootloader_esp_idf::partitions::FlashStorage;
-use esp_hal::{Async, rng::TrngSource, uart::UartTx};
+use esp_hal::{Async, uart::UartTx};
 use esp_println::println;
 use postcard::{
     ser_flavors::{Cobs, Slice},
@@ -36,13 +36,11 @@ pub async fn run(mut commands: CommandExecutor) {
 impl CommandExecutor {
     #[builder]
     pub fn new(
-        db: FlashStorage<'static>,
-        entropy: TrngSource<'static>,
+        db: Database<'static, String>,
         uart_tx: UartTx<'static, Async>,
         rx: DynamicReceiver<'static, CliAction>,
-        key: EncryptionKey,
     ) -> Result<Self> {
-        Ok(Self { db: Database::new(db, entropy, key)?, uart_tx, rx })
+        Ok(Self { db, uart_tx, rx })
     }
 
     pub async fn next(&mut self) -> Result<()> {
