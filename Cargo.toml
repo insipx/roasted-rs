@@ -11,7 +11,11 @@ diesel = { version = "2.3", features = [
   "returning_clauses_for_sqlite_3_35",
   "uuid",
 ] }
+embedded-io-adapters = "0.7"
+embedded-io-async = "0.7"
 futures = { version = "0.3", default-features = false }
+futures-core = { version = "0.3", default-features = false }
+futures-util = "0.3"
 hex = { version = "0.4", default-features = false }
 insta = "1.48"
 lexopt = "0.3.2"
@@ -22,6 +26,7 @@ serde_json = "1"
 serde_repr = "0.1"
 static_cell = "2.1"
 tabled = "0.22"
+thiserror = { version = "2", default-features = false }
 tokio = { version = "1.53.1", features = ["macros", "rt"] }
 tokio-serial = "5.5"
 tokio-tungstenite = { version = "0.30", features = [
@@ -40,6 +45,7 @@ warp = { version = "0.4", features = ["websocket", "server"] }
 zeroize = { version = "1.9", default-features = false, features = ["derive"] }
 
 # local dep
+roasted-data-streams = { path = "crates/data-streams" }
 roasted-db = { path = "crates/db" }
 roasted-db-schema = { path = "crates/db-schema" }
 roasted-types = { path = "crates/types" }

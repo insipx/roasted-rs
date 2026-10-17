@@ -1,0 +1,22 @@
+[package]
+name = "roasted-data-streams"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+embedded-io-adapters = { workspace = true, features = [
+  "tokio-1",
+], optional = true }
+embedded-io-async.workspace = true
+futures-core.workspace = true
+futures-util.workspace = true
+pin-project-lite.workspace = true
+postcard.workspace = true
+roasted-types = { workspace = true, features = ["zippy"] }
+serde.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, optional = true }
+
+[features]
+default = ["std"]
+std = ["embedded-io-adapters", "tokio"]

@@ -11,6 +11,7 @@ futures.workspace = true
 lexopt.workspace = true
 pin-project-lite.workspace = true
 postcard = { workspace = true, features = ["use-std"] }
+roasted-data-streams.workspace = true
 roasted-types = { workspace = true, features = ["zippy"] }
 tabled.workspace = true
 tokio = { workspace = true, features = ["signal", "io-std", "io-util", "rt"] }

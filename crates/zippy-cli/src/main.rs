@@ -1,8 +1,8 @@
 use std::time::Duration;
 
-use cobs_stream::CobsStream;
 use color_eyre::{Result, eyre::bail};
 use futures::TryStreamExt;
+use roasted_data_streams::zippy::ResponseStream;
 use roasted_types::zippy::{CliAction, ZippyResponse};
 use tokio::io::AsyncWriteExt;
 use tokio_serial::SerialPortBuilderExt;
@@ -42,7 +42,7 @@ async fn drive(args: args::Args) -> Result<()> {
     port.write_all(frame).await?;
     port.flush().await?;
 
-    let mut s = CobsStream::new(port);
+    let mut s = ResponseStream::new_tokio(port);
     loop {
         tokio::select! {
             response = s.try_next() => {
