@@ -5,8 +5,8 @@ mod actions;
 mod configuration;
 mod db;
 mod error;
+mod net;
 mod serial;
-mod websocket_client;
 
 use anyhow::Result;
 use crypto_common::rand_core::Rng;
@@ -117,7 +117,7 @@ async fn run(
         NET_RESOURCES.init(embassy_net::StackResources::new()),
         seed,
     );
-    spawner.spawn(websocket_client::net_task(runner)?);
-    spawner.spawn(websocket_client::ws_task(stack)?);
+    spawner.spawn(net::bg_runner(runner)?);
+    spawner.spawn(net::ws(stack)?);
     Ok(())
 }

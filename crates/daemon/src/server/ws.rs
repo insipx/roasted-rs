@@ -11,10 +11,8 @@ use crate::server::driver::RoastedDriver;
 
 pub async fn server(port: u16, gaggimate: Url, db: PathBuf) {
     let routes = warp::path("ws")
-        // The `ws()` filter will prepare the Websocket handshake.
         .and(warp::ws())
         .map(move |ws: warp::ws::Ws| {
-            // And then our closure will be called when it completes...
             ws.on_upgrade({
                 let gm = gaggimate.clone();
                 let db = db.clone();
