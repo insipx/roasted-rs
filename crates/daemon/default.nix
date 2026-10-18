@@ -4,6 +4,7 @@
   lib,
   cacert,
   pkg-config,
+  sqlite,
   local,
 }:
 let
@@ -15,18 +16,24 @@ let
     }
     // {
       src = local.filesets.workspace;
-      buildInputs = [ cacert ];
+      buildInputs = [
+        cacert
+        sqlite
+      ];
       nativeBuildInputs = [ pkg-config ];
       strictDeps = true;
       CARGO_BUILD_TARGET = stdenv.hostPlatform.rust.rustcTarget;
+      cargoExtraArgs = "--workspace --exclude roasted-zippy";
     };
   cargoArtifacts = rust.buildDepsOnly commonArgs;
 in
-rust.buildPackage commonArgs
-// {
-  pname = "roasted-daemon";
-  src = local.filesets.forCrate /crates/daemon;
-  version = "0.1.0";
-  inherit cargoArtifacts;
-  cargoExtraArgs = "-p roasted-daemon";
-}
+rust.buildPackage (
+  commonArgs
+  // {
+    pname = "roasted-daemon";
+    src = local.filesets.forCrate /crates/daemon;
+    version = "0.1.0";
+    inherit cargoArtifacts;
+    cargoExtraArgs = "-p roasted-daemon";
+  }
+)

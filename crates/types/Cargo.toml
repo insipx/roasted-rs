@@ -4,10 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bon.workspace = true
+bon = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive", "alloc"] }
-serde_repr.workspace = true
-url = { workspace = true, default-features = false, features = ["serde"] }
+serde_repr = { workspace = true, optional = true }
+url = { workspace = true, default-features = false, features = [
+  "serde",
+], optional = true }
 zeroize = { workspace = true, features = ["alloc"] }
 
 # optional
@@ -23,9 +25,9 @@ serde_json.workspace = true
 
 [features]
 std = []
-default = ["std", "serde/std", "zeroize/std", "bon/std", "url/std"]
+default = ["all", "std", "serde/std", "zeroize/std", "url/std", "bon/std"]
 all = ["db", "ws", "zippy", "daemon"]
-db = ["dep:diesel", "dep:roasted-db-schema", "dep:uuid"]
-ws = []
-zippy = []
+db = ["dep:diesel", "dep:roasted-db-schema", "dep:uuid", "ws", "daemon"]
+ws = ["dep:serde_repr"]
+zippy = ["dep:bon", "dep:url"]
 daemon = []

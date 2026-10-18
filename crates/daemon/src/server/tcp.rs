@@ -12,8 +12,10 @@ use crate::server::driver::RoastedDriver;
 
 pub async fn server(port: u16, gaggimate: Url, db: PathBuf) -> Result<()> {
     let listener = TcpListener::bind(format!("0.0.0.0:{port}")).await?;
+    tracing::info!("listening on 0.0.0.0:{port}");
     loop {
-        let (socket, _) = listener.accept().await?;
+        let (socket, addr) = listener.accept().await?;
+        tracing::info!("accepted connection from {addr}");
         let gm = gaggimate.clone();
         let db = db.clone();
         let driver = RoastedDriver::new(gm, socket, db);

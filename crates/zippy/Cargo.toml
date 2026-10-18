@@ -52,8 +52,8 @@ esp-storage = { version = "0.10", features = ["esp32s3"] }
 futures.workspace = true
 heapless = "0.9"
 hex = { workspace = true, features = ["alloc"], optional = true }
-nb = "1"
 log = { version = "0.4", default-features = false }
+nb = "1"
 postcard.workspace = true
 roasted-types = { workspace = true, default-features = false, features = [
   "zippy",

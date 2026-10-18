@@ -8,7 +8,7 @@ pub struct Args {
     /// Url for Gaggimate
     pub gaggimate: Url,
     /// port to bind webserver on, default 443
-    pub ws_port: u16,
+    pub tcp_port: u16,
     /// port to bind webserver on to accept audio from esp32.
     /// Default 5005
     pub udp_port: u16,
@@ -21,7 +21,7 @@ pub fn parse_args() -> Result<Args> {
     use lexopt::prelude::*;
 
     let mut gaggimate = None;
-    let mut ws_port = 80;
+    let mut tcp_port = 80;
     let mut udp_port = 5005;
     let mut loki = None;
     let mut parser = lexopt::Parser::from_env();
@@ -34,15 +34,15 @@ pub fn parse_args() -> Result<Args> {
             Long("loki") => {
                 loki = Some(parser.value()?.parse().wrap_err(err("loki"))?);
             }
-            Long("ws_port") => {
-                ws_port = parser.value()?.parse().wrap_err(err("ws_port"))?;
+            Long("tcp_port") => {
+                tcp_port = parser.value()?.parse().wrap_err(err("tcp_port"))?;
             }
             Long("udp_port") => {
                 udp_port = parser.value()?.parse().wrap_err(err("udp_port"))?;
             }
             Short('h') | Long("help") => {
                 println!(
-                    "Usage: roasted-daemon [-g|--gaggimate=STRING --ws-port=PORT --udp_port=PORT --loki=URL]"
+                    "Usage: roasted-daemon [-g|--gaggimate=STRING --tcp-port=PORT --udp_port=PORT --loki=URL]"
                 );
                 std::process::exit(0);
             }
@@ -54,5 +54,5 @@ pub fn parse_args() -> Result<Args> {
         panic!("no gaggimate URL provided")
     }
 
-    Ok(Args { gaggimate: gaggimate.unwrap(), ws_port, udp_port, loki })
+    Ok(Args { gaggimate: gaggimate.unwrap(), tcp_port, udp_port, loki })
 }

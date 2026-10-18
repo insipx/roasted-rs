@@ -13,7 +13,7 @@ mod server;
 #[tokio::main(flavor = "local")]
 async fn main() -> Result<()> {
     color_eyre::install()?;
-    let Args { gaggimate, ws_port, udp_port, loki } = args::parse_args()?;
+    let Args { gaggimate, tcp_port, udp_port, loki } = args::parse_args()?;
 
     if let Some(loki_url) = loki {
         let (layer, task) = tracing_loki::builder()
@@ -34,7 +34,7 @@ async fn main() -> Result<()> {
     }
     let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let handle =
-        tokio::task::spawn_local(server::tcp::server(ws_port, gaggimate, PathBuf::from(db_url)));
+        tokio::task::spawn_local(server::tcp::server(tcp_port, gaggimate, PathBuf::from(db_url)));
 
     tokio::try_join!(handle)?.0?;
     Ok(())

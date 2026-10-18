@@ -24,10 +24,7 @@ let
       rust-toolchain = fenix.default.toolchain;
     in
     mkShell {
-      nativeBuildInputs = [
-        pkg-config
-        sqlite
-      ];
+      nativeBuildInputs = [ pkg-config ];
       buildInputs = [
         rust-toolchain
         fenix.rust-analyzer
@@ -44,6 +41,7 @@ let
       ++ lib.optionals isDarwin [
         darwin.cctools
       ];
+      LD_LIBRARY_PATH = "${lib.makeLibraryPath [ sqlite ]}:$LD_LIBRARY_PATH";
       shellHook = ''
         export TMP_DIR="$(mktemp -d /tmp/nix-shell-XXXXXX)"
         mkdir $TMP_DIR/sqlite
