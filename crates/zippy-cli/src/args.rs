@@ -118,7 +118,9 @@ pub fn parse_args() -> Result<Args> {
                 break;
             }
             Short('h') | Long("help") => {
-                println!("Usage: zippy-cli [-d|--device=FILE [ACTION]");
+                println!(
+                    "Usage: zippy-cli [-d|--device=FILE [SayHello|InitWifi|SetDaemonUrl|ListPorts]"
+                );
                 std::process::exit(0);
             }
             _ => bail!(arg.unexpected()),
