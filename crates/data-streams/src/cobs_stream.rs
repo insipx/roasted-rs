@@ -15,9 +15,13 @@ use postcard::accumulator::{CobsAccumulator, FeedResult};
 
 use crate::error::{DataStreamError, Result};
 
+// TODO: need a [`Sink`] implementation for writing
 /// A Stream of some [`roasted-types`] `zippy` Request or Response type.
 /// Compatible with embedded and std environments, to be used over UART, JTAG
 /// or TCP/WebSockets
+/// Internally uses [`futures_util::stream::unfold`] and is cancellation-safe.
+/// if a `next` call is dropped, any bytes or in-progress deserialization progress
+/// is still kept for the next call.
 pub struct ZippyStream<T> {
     inner: Pin<Box<dyn Stream<Item = Result<T>>>>,
 }

@@ -1,5 +1,5 @@
 use anyhow::{Result, anyhow, bail};
-use embassy_net::{IpEndpoint, Stack, dns::DnsQueryType, tcp::TcpSocket};
+use embassy_net::{IpEndpoint, Stack, dns::DnsQueryType, tcp::TcpSocket, udp::UdpSocket};
 use url::Url;
 
 pub struct TcpChannel<'bufs> {
@@ -32,4 +32,10 @@ impl<'bufs> TcpChannel<'bufs> {
         socket.connect(addr).await?;
         Ok(Self { stack, url, socket })
     }
+}
+
+pub struct UdpChannel<'bufs> {
+    stack: Stack<'static>,
+    url: Url,
+    socket: UdpSocket<'bufs>,
 }

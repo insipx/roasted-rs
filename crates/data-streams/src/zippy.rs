@@ -45,10 +45,16 @@ macro_rules! zippy_stream {
 
 zippy_stream! {
     /// COBS-framed actions sent to Zippy.
+    /// Internally uses [`futures_util::stream::unfold`] and is cancellation-safe.
+    /// if a `next` call is dropped, any bytes or in-progress deserialization progress
+    /// is still kept for the next call.
     pub struct ActionStream(CliAction);
 }
 
 zippy_stream! {
     /// COBS-framed responses received from Zippy.
+   /// Internally uses [`futures_util::stream::unfold`] and is cancellation-safe.
+    /// if a `next` call is dropped, any bytes or in-progress deserialization progress
+    /// is still kept for the next call.
     pub struct ResponseStream(ZippyResponse);
 }

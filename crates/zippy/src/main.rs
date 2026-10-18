@@ -122,6 +122,6 @@ async fn run(
         seed,
     );
     spawner.spawn(net::bg_runner(runner)?);
-    spawner.spawn(net::tcp_channel(stack, read_db)?);
+    spawner.spawn(net::net(stack, read_db)?);
     Ok(())
 }

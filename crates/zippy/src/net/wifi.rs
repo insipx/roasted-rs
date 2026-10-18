@@ -25,6 +25,10 @@ impl Args<'_> {
     }
 }
 
+/// start the task managing WiFi for zippy.
+/// will connect to WiFi whenever a SetWiFi or start event is emmitted
+/// will retry forever with an exponential backoff strategy until connected.
+/// max duratoin is set to 60 seconds.
 #[embassy_executor::task]
 pub async fn wifi(mut controller: WifiController<'static>, db: DbReader<String>) {
     tracing::info!("starting WiFi controller");
@@ -80,6 +84,6 @@ async fn run(args: &mut Args<'_>) -> Result<()> {
 
 fn print_aps(aps: &[AccessPointInfo]) {
     for ap in aps {
-        tracing::info!(ssid = ap.ssid.as_str(), signal_strength = ap.signal_strength, auth = ?ap.auth_method, "Found WiFI Access Point");
+        tracing::info!(ssid = ap.ssid.as_str(), signal_strength = ap.signal_strength, auth = ?ap.auth_method, "found WiFI access point");
     }
 }
