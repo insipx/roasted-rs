@@ -1,4 +1,4 @@
-//! The WS Server
+//! The TCP Server
 //! Spawns drivers upon connections with Zippy clients
 
 use std::path::PathBuf;

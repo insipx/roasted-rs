@@ -43,7 +43,7 @@ async fn main(spawner: Spawner) -> () {
         size: 64 * 1024
     );
     esp_alloc::heap_allocator!(size: 36 * 1024);
-    esp_println::logger::init_logger(log::LevelFilter::Info);
+    esp_println::logger::init_logger(log::LevelFilter::Debug);
     tracing::info!(firmware_version = env!("CARGO_PKG_VERSION"), "starting Zippy");
 
     let rw = esp_hal::uart::Uart::new(peripherals.UART0, Default::default())
@@ -96,6 +96,7 @@ async fn run(
     // init the actions runner
     let key = EncryptionKey::hmac(hmac)?;
     let db = Database::new(db, key)?;
+    let read_db = db.reader();
     let cmds = actions::CommandExecutor::builder()
         .db(db)
         .uart_tx(uart_tx)
@@ -119,6 +120,6 @@ async fn run(
         seed,
     );
     spawner.spawn(net::bg_runner(runner)?);
-    spawner.spawn(net::tcp_channel(stack)?);
+    spawner.spawn(net::tcp_channel(stack, read_db)?);
     Ok(())
 }

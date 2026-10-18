@@ -24,7 +24,10 @@ let
       rust-toolchain = fenix.default.toolchain;
     in
     mkShell {
-      nativeBuildInputs = [ pkg-config ];
+      nativeBuildInputs = [
+        pkg-config
+        sqlite
+      ];
       buildInputs = [
         rust-toolchain
         fenix.rust-analyzer

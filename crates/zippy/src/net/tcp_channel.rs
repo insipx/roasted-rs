@@ -17,14 +17,11 @@ impl<'bufs> TcpChannel<'bufs> {
         mut socket: TcpSocket<'bufs>,
         stack: Stack<'static>,
     ) -> Result<Self> {
-        let mut rng = Trng::try_new().expect("RNG must be active");
-
         if url.scheme() != "tcp" {
             bail!("only tcp:// URLs (`tcp://${{host}}:${{port}}`) supported");
         }
         let host = url.host_str().ok_or_else(|| anyhow!("no host specified"))?;
         let port = url.port_or_known_default().ok_or_else(|| anyhow!("no port specified"))?;
-        let path = url.path();
         // TODO: should try all ips from dns query and if not retry/backoff (implement retry/backoff
         // in `tcp_channel` top-level fn)
         let ips = stack
