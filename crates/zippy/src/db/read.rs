@@ -5,6 +5,7 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, rwlock::RwLockR
 use super::{DbKey, Lock};
 
 /// Read-only db
+#[derive(Clone)]
 pub struct DbReader<V> {
     pub(super) inner: Lock<V>,
 }

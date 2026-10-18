@@ -12,17 +12,22 @@ use postcard::{
 };
 use roasted_types::zippy::{CliAction, InitWifi, ZippyResponse};
 
-use crate::db::{self, Database};
+use crate::{
+    db::{self, Database},
+    eventbus::{EventPublisher, Events},
+};
 
 pub struct CommandExecutor {
     db: Database<'static, String>,
     uart_tx: UartTx<'static, Async>,
     // internal msg channel
     rx: DynamicReceiver<'static, CliAction>,
+    publisher: EventPublisher,
 }
 
 #[embassy_executor::task]
 pub async fn run(mut commands: CommandExecutor) {
+    commands.publisher.publish_immediate(Events::Start);
     loop {
         if let Err(e) = commands.next().await {
             tracing::error!(error = %e, "command execution failed");
@@ -38,7 +43,8 @@ impl CommandExecutor {
         uart_tx: UartTx<'static, Async>,
         rx: DynamicReceiver<'static, CliAction>,
     ) -> Result<Self> {
-        Ok(Self { db, uart_tx, rx })
+        let publisher = crate::eventbus::publisher()?;
+        Ok(Self { db, uart_tx, rx, publisher })
     }
 
     pub async fn next(&mut self) -> Result<()> {
@@ -57,6 +63,7 @@ impl CommandExecutor {
                         .await?;
                 }
                 self.send(new_message("written")?).await?;
+                self.publisher.publish_immediate(Events::SetWiFi);
             }
             CliAction::ListPorts => todo!(),
             CliAction::SetDaemonUrl(u) => {
@@ -65,6 +72,7 @@ impl CommandExecutor {
                     self.send(new_emessage(alloc::format!("Error saving daemon url {e}"))?).await?;
                 }
                 self.send(new_message(alloc::format!("wrote {u}"))?).await?;
+                self.publisher.publish_immediate(Events::SetDaemonUrl);
             }
         }
         self.end().await?;

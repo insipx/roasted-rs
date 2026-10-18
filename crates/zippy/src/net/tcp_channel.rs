@@ -1,6 +1,5 @@
 use anyhow::{Result, anyhow, bail};
 use embassy_net::{IpEndpoint, Stack, dns::DnsQueryType, tcp::TcpSocket};
-use esp_hal::rng::Trng;
 use url::Url;
 
 pub struct TcpChannel<'bufs> {

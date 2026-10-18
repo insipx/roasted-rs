@@ -2857,7 +2857,6 @@ dependencies = [
  "esp-radio",
  "esp-rtos",
  "esp-storage",
- "futures",
  "heapless 0.9.3",
  "hex",
  "log",

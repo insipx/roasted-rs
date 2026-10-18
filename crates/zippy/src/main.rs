@@ -5,6 +5,7 @@ mod actions;
 mod configuration;
 mod db;
 mod error;
+mod eventbus;
 mod net;
 mod serial;
 
@@ -106,6 +107,7 @@ async fn run(
 
     // init wifi
     let controller = esp_radio::wifi::WifiController::new(wifi, Default::default())?;
+    spawner.spawn(net::wifi(controller, read_db.clone())?);
     let driver = esp_radio::wifi::Interface::station();
     let mut dhcp = embassy_net::DhcpConfig::default();
     let hostname = heapless::String::try_from(crate::configuration::net::HOSTNAME).expect("static");
