@@ -118,6 +118,6 @@ async fn run(
         seed,
     );
     spawner.spawn(net::bg_runner(runner)?);
-    spawner.spawn(net::ws(stack)?);
+    spawner.spawn(net::tcp_channel(stack)?);
     Ok(())
 }

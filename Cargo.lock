@@ -726,53 +726,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "edge-http"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e8d05b815a091dc636cc1d62374cf1b96b763117291242882f9741dd4e251ed"
-dependencies = [
- "base64 0.22.1",
- "edge-nal",
- "embassy-futures",
- "embassy-sync 0.8.0",
- "embedded-io-async 0.7.0",
- "heapless 0.9.3",
- "httparse",
- "sha1_smol",
-]
-
-[[package]]
-name = "edge-nal"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "590182a48668fa4988cd97b9b500bcc9a213e9b122b4e0008e934b3916c64031"
-dependencies = [
- "embassy-time",
- "embedded-io-async 0.7.0",
-]
-
-[[package]]
-name = "edge-nal-embassy"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79ad23a63d41bdda528a3b725ae9119ce58abeea265b41fc7f8b254c8d07b2a2"
-dependencies = [
- "edge-nal",
- "embassy-futures",
- "embassy-net",
- "embedded-io-async 0.7.0",
-]
-
-[[package]]
-name = "edge-ws"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b0540ed0af1b8e98c055b74d87aec4ebd22c1bddb447bb625f5a86559f268bf"
-dependencies = [
- "embedded-io-async 0.7.0",
-]
-
-[[package]]
 name = "either"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3053,10 +3006,6 @@ dependencies = [
  "bon",
  "chacha20poly1305",
  "crypto-common 0.2.2",
- "edge-http",
- "edge-nal",
- "edge-nal-embassy",
- "edge-ws",
  "embassy-embedded-hal",
  "embassy-executor",
  "embassy-net",
@@ -3372,12 +3321,6 @@ dependencies = [
  "cpufeatures 0.3.1",
  "digest 0.11.3",
 ]
-
-[[package]]
-name = "sha1_smol"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbfa15b3dddfee50a0fff136974b3e1bde555604ba463834a7eb7deb6417705d"
 
 [[package]]
 name = "sha2"

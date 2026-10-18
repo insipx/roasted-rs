@@ -1,10 +1,10 @@
 //! Cobs delineated streams for Zippy Response and Request data types
 use alloc::boxed::Box;
 use core::{
+    marker::PhantomData,
     pin::Pin,
     task::{Context, Poll},
 };
-use core::marker::PhantomData;
 
 #[cfg(feature = "std")]
 use embedded_io_adapters::tokio_1::FromTokio;
@@ -95,7 +95,7 @@ where
             if self.pending_len == 0 {
                 self.filled = self
                     .inner
-                    .read(&mut buffer[self.filled..])
+                    .read(buffer)
                     .await
                     .map_err(|e| DataStreamError::ReadFailed(format!("{:?}", e)))?;
             } else {
@@ -114,7 +114,7 @@ where
                 window = match self.accumulator.feed::<T>(window) {
                     FeedResult::Consumed => break 'cobs,
                     FeedResult::OverFull(new_wind) => new_wind,
-                    FeedResult::DeserError(new_wind) => { new_wind }
+                    FeedResult::DeserError(new_wind) => new_wind,
                     FeedResult::Success { data, remaining } => {
                         let len = remaining.len();
                         let start = ct - len;

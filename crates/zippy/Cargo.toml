@@ -12,12 +12,6 @@ chacha20poly1305 = { version = "0.11", default-features = false, features = [
   "arrayvec",
 ] }
 crypto-common = { version = "0.2", features = ["rand_core"] }
-edge-http = "0.8"
-edge-nal = "0.7"
-edge-nal-embassy = { version = "0.9", default-features = false, features = [
-  "tcp",
-] }
-edge-ws = "0.8"
 embassy-embedded-hal = "0.6"
 embassy-executor = "0.10.0"
 embassy-net = { version = "0.9", features = [
