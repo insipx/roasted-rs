@@ -7,6 +7,7 @@ description = "ESP32 Audio/Microphone to roast your espresso"
 [dependencies]
 anyhow = { version = "1", default-features = false }
 arrayvec = { version = "0.7", default-features = false, features = ["serde"] }
+backon = { workspace = true, features = ["embassy-sleep"] }
 bon.workspace = true
 chacha20poly1305 = { version = "0.11", default-features = false, features = [
   "arrayvec",

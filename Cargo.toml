@@ -3,6 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.dependencies]
+backon = { version = "1.6", default-features = false }
 bon = { version = "3.10", default-features = false }
 color-eyre = "0.6"
 dialoguer = "0.12"
