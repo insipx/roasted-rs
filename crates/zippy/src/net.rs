@@ -26,6 +26,6 @@ async fn run(stack: Stack<'static>) -> Result<()> {
     stack.wait_config_up().await;
 
     let temp_url = "ws://www.example.com/ws".parse().unwrap();
-    let session = TcpChannel::builder().stack(stack).url(temp_url).tcp(tcp).connect().await?;
+    let session = TcpChannel::builder().stack(stack).url(temp_url).socket(tcp).connect().await?;
     Ok(())
 }

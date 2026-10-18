@@ -1,5 +1,3 @@
-use core::ops;
-
 use serde::{Deserialize, Serialize};
 
 /// Numeric utility profile flag reported by the firmware.

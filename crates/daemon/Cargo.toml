@@ -18,7 +18,9 @@ tracing-loki.workspace = true
 tracing-subscriber.workspace = true
 url.workspace = true
 uuid.workspace = true
-warp.workspace = true
+# dont need warp yet, maybe when we
+# want a simple website or something
+# warp.workspace = true
 
 [features]
 default = []

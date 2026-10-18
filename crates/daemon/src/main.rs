@@ -34,12 +34,8 @@ async fn main() -> Result<()> {
     }
     let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let handle =
-        tokio::task::spawn_local(server::ws::server(ws_port, gaggimate, PathBuf::from(db_url)));
+        tokio::task::spawn_local(server::tcp::server(ws_port, gaggimate, PathBuf::from(db_url)));
 
-    tokio::try_join!(handle)?;
-    // let mut s = GaggimateListener::connect(&gaggimate).await?;
-    // while let Some(ev) = s.try_next().await? {
-    //     println!("{:#?}", ev);
-    // }
+    tokio::try_join!(handle)?.0?;
     Ok(())
 }
