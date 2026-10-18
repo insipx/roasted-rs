@@ -55,10 +55,10 @@ async fn run(args: Args<'_>) -> Result<()> {
     stack.wait_config_up().await;
     let mut tcp = TcpSocket::new(*stack, &mut rx, &mut tx);
     let url = db.daemon_url().await.ok_or(anyhow!("no daemon url set"))?;
-    tracing::info!("config is up, connecting TCP socket");
 
     let mut session =
         TcpChannel::builder().stack(*stack).url(url.parse()?).socket(tcp).connect().await?;
+    tracing::info!(addr = ?session.remote_endpoint(), "tcp connected");
     loop {
         match subscriber.next_message_pure().await {
             Events::SetDaemonUrl => {
