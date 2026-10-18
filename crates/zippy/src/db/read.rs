@@ -16,6 +16,28 @@ impl<V> DbReader<V> {
     }
 }
 
+// can avoid clone here maybe?
+// we would need to hold a long-lived reference to the db reader
+// which would prevent writes to avoid cloning
+// cloning small strings should generally be OK? as long as they aren't leaked
+// somehow.
+impl<V: Clone> DbReader<V> {
+    pub async fn daemon_url(&self) -> Option<V> {
+        let read = self.read().await;
+        read.get(&super::Keys::DURL).cloned()
+    }
+
+    pub async fn ssid(&self) -> Option<V> {
+        let read = self.read().await;
+        read.get(&super::Keys::SSID).cloned()
+    }
+
+    pub async fn wifi_pw(&self) -> Option<V> {
+        let read = self.read().await;
+        read.get(&super::Keys::WIPW).cloned()
+    }
+}
+
 /// A view into the db.
 pub struct DbReadView<'a, V> {
     pub(super) guard: RwLockReadGuard<'a, CriticalSectionRawMutex, BTreeMap<DbKey, V>>,

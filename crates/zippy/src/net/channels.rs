@@ -32,6 +32,7 @@ impl<'bufs> TcpChannel<'bufs> {
         socket.connect(addr).await?;
         Ok(Self { stack, url, socket })
     }
+    // todo: close the socket, or add fn for reopining to diff url
 }
 
 pub struct UdpChannel<'bufs> {

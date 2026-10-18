@@ -6,13 +6,17 @@ use core::time::Duration;
 
 use anyhow::{Result, anyhow};
 use backon::{ExponentialBuilder, Retryable};
+use embassy_futures::select;
 use embassy_net::{Stack, tcp::TcpSocket};
 
-use crate::db::{self, DbReader};
+use crate::{
+    db::{self, DbReader},
+    eventbus::Events,
+};
 
-mod tcp_channel;
+mod channels;
 mod wifi;
-pub use tcp_channel::*;
+pub use channels::*;
 pub use wifi::*;
 
 #[embassy_executor::task]
@@ -45,14 +49,32 @@ pub async fn net(stack: Stack<'static>, db: DbReader<String>) {
 }
 
 async fn run(args: Args<'_>) -> Result<()> {
+    let mut subscriber = crate::eventbus::subscriber()?;
     let Args { stack, db } = args;
     let (mut rx, mut tx) = ([0u8; 128], [0u8; 128]);
-    let tcp = TcpSocket::new(*stack, &mut rx, &mut tx);
     stack.wait_config_up().await;
-    let read = db.read().await;
+    let mut tcp = TcpSocket::new(*stack, &mut rx, &mut tx);
+    let url = db.daemon_url().await.ok_or(anyhow!("no daemon url set"))?;
+    tracing::info!("config is up, connecting TCP socket");
 
-    let url = read.get(&db::Keys::DURL).ok_or(anyhow!("no daemon url set"))?;
-    let session =
+    let mut session =
         TcpChannel::builder().stack(*stack).url(url.parse()?).socket(tcp).connect().await?;
+    loop {
+        match subscriber.next_message_pure().await {
+            Events::SetDaemonUrl => {
+                let url = db.daemon_url().await.ok_or(anyhow!("no daemon url set"))?;
+                // TODO: should do a ordered shutdown of socket close etc.
+                drop(session);
+                let tcp = TcpSocket::new(*stack, &mut rx, &mut tx);
+                session = TcpChannel::builder()
+                    .stack(*stack)
+                    .url(url.parse()?)
+                    .socket(tcp)
+                    .connect()
+                    .await?;
+            }
+            _ => continue,
+        };
+    }
     Ok(())
 }

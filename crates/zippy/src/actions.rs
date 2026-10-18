@@ -73,6 +73,7 @@ impl CommandExecutor {
                 }
                 self.send(new_message(alloc::format!("wrote {u}"))?).await?;
                 self.publisher.publish_immediate(Events::SetDaemonUrl);
+                tracing::info!("daemon url set");
             }
         }
         self.end().await?;

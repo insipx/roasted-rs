@@ -66,9 +66,8 @@ async fn run(args: &mut Args<'_>) -> Result<()> {
         let aps = controller.scan_async(&scan_config).await?;
         print_aps(&aps);
 
-        let db = db.read().await;
-        let ssid = db.get(&db::Keys::SSID).ok_or(anyhow!("no ssid set"))?;
-        let pw = db.get(&db::Keys::WIPW).ok_or(anyhow!("no wifi password set"))?;
+        let ssid = db.ssid().await.ok_or(anyhow!("now ssid set"))?;
+        let pw = db.wifi_pw().await.ok_or(anyhow!("no wifi password set"))?;
         tracing::info!(ssid, "connecting to WiFi network");
         let config = Config::Station(
             StationConfig::default().with_ssid(ssid.as_str().try_into()?).with_authentication(
