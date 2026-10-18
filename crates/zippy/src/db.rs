@@ -131,15 +131,15 @@ where
         let mut region = this.as_region()?;
         region.read(0, &mut buf)?;
         if let Ok(header) = core::primitive::str::from_utf8(&buf) {
-            esp_println::println!("db header: `{header}`");
+            tracing::debug!(header, "read database header");
         }
         if buf.iter().all(|&byte| byte == 0xFF) {
-            esp_println::println!("brand new database");
+            tracing::info!("initializing empty database");
             region.write(0, DB_HEADER)?;
             cache.clear();
         } else if buf != *DB_HEADER {
             // not the best but idc for now.
-            esp_println::println!("unknown/corrupted db. discarding and overwriting");
+            tracing::warn!("unknown or corrupted database; discarding and overwriting");
             region.write(0, DB_HEADER)?;
             cache.clear();
             let _ = this.flush();
@@ -148,13 +148,13 @@ where
         }
         for (k, v) in cache.iter() {
             if *k == Keys::WIPW {
-                esp_println::println!("{k}: ***");
+                tracing::debug!(key = %k, value = "***", "loaded database entry");
             } else {
                 // for now we only store string pairs. this will probably break. not worth
                 // expanding value types yet, we only need wifi pass.
                 let s = core::primitive::str::from_utf8(v.as_ref())
                     .expect("whoops we do not handle non-UTF8 key values!");
-                esp_println::println!("{} : {}", k, s);
+                tracing::debug!(key = %k, value = s, "loaded database entry");
             }
         }
         this.cache = Arc::new(RwLock::new(cache));

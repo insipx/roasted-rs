@@ -16,7 +16,7 @@ pub struct UartCli {
 
 #[embassy_executor::task]
 pub async fn cli_driver(uart: UartCli) {
-    esp_println::println!("running CLI Driver\r");
+    tracing::info!("starting CLI driver");
     if let Err(e) = run(uart).await {
         panic!("CLI Command Task Failed {e:?}");
     }
@@ -32,7 +32,7 @@ async fn run(mut rw: UartCli) -> Result<()> {
                 rw.tx.send(action).await;
             }
             #[allow(unreachable_patterns)]
-            Err(e) => esp_println::println!("RX Error: {:?}", e),
+            Err(e) => tracing::warn!(error = ?e, "UART receive failed"),
         }
     }
 }

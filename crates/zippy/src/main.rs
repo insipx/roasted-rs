@@ -43,7 +43,8 @@ async fn main(spawner: Spawner) -> () {
         size: 64 * 1024
     );
     esp_alloc::heap_allocator!(size: 36 * 1024);
-    esp_println::println!("Hello");
+    esp_println::logger::init_logger(log::LevelFilter::Info);
+    tracing::info!(firmware_version = env!("CARGO_PKG_VERSION"), "starting Zippy");
 
     let rw = esp_hal::uart::Uart::new(peripherals.UART0, Default::default())
         .expect("UART init failed")
@@ -85,7 +86,7 @@ async fn run(
     esp_rtos::start(timg0.timer0, cpu);
 
     // init serial connection
-    esp_println::println!("spawning tasks\r");
+    tracing::info!("spawning tasks");
     static COMMANDS: Channel<CriticalSectionRawMutex, roasted_types::zippy::CliAction, 8> =
         Channel::new();
     let (uart_rx, uart_tx) = rw.split();

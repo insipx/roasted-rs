@@ -14,7 +14,7 @@ pub async fn bg_runner(mut runner: embassy_net::Runner<esp_radio::wifi::Interfac
 // TODO: add retries and backoff strategy
 #[embassy_executor::task]
 pub async fn tcp_channel(stack: Stack<'static>) {
-    esp_println::println!("running TCP channel\r");
+    tracing::info!("starting TCP channel");
     if let Err(e) = run(stack).await {
         panic!("TCP Channel Task Failed {e:?}");
     }

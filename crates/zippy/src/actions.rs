@@ -6,7 +6,6 @@ use bon::bon;
 use embassy_sync::channel::DynamicReceiver;
 use embedded_io_async::Write;
 use esp_hal::{Async, uart::UartTx};
-use esp_println::println;
 use postcard::{
     ser_flavors::{Cobs, Slice},
     serialize_with_flavor,
@@ -26,7 +25,7 @@ pub struct CommandExecutor {
 pub async fn run(mut commands: CommandExecutor) {
     loop {
         if let Err(e) = commands.next().await {
-            println!("{e}");
+            tracing::error!(error = %e, "command execution failed");
         }
     }
 }
@@ -44,7 +43,7 @@ impl CommandExecutor {
 
     pub async fn next(&mut self) -> Result<()> {
         let action = self.rx.receive().await;
-        println!("Processing action");
+        tracing::debug!(action = %action, "processing action");
         match action {
             CliAction::SayHello => {
                 self.send(new_message("Hello, this is Zippy!")?).await?;
