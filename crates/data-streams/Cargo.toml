@@ -10,6 +10,7 @@ embedded-io-adapters = { workspace = true, features = [
 embedded-io-async.workspace = true
 futures-core.workspace = true
 futures-util.workspace = true
+mbedtls-rs-sys = { version = "0.3" }
 pin-project-lite.workspace = true
 postcard.workspace = true
 roasted-types = { workspace = true, features = ["zippy"] }
@@ -19,4 +20,4 @@ tokio = { workspace = true, optional = true }
 
 [features]
 default = ["std"]
-std = ["embedded-io-adapters", "tokio"]
+std = ["embedded-io-adapters", "tokio", "tokio/net"]

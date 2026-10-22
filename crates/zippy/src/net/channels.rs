@@ -46,6 +46,7 @@ fn print_ips(ips: &[embassy_net::IpAddress]) {
         tracing::info!(%ip, "found ip");
     }
 }
+
 pub struct UdpChannel<'bufs> {
     stack: Stack<'static>,
     url: Url,

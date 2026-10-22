@@ -17,6 +17,7 @@ let
       ldproxy,
       picocom,
       just,
+      cmake,
     }:
 
     let
@@ -37,6 +38,7 @@ let
         sqlite
         picocom
         just
+        cmake
       ]
       ++ lib.optionals isDarwin [
         darwin.cctools
