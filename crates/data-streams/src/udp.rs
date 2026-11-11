@@ -2,7 +2,7 @@
 use core::{
     mem::MaybeUninit,
     net::SocketAddr,
-    task::{Context, Poll},
+    task::{Context, Poll, Waker},
 };
 
 use mbedtls_rs_sys::{
@@ -24,7 +24,7 @@ pub trait UdpSocket {
 }
 
 pub struct UdpDtlsSocket<S: UdpSocket> {
-    inner: S,
+    context: DtlsWakerContext<S>,
     ssl_config: Box<mbedtls_ssl_config>,
 }
 
@@ -44,6 +44,57 @@ impl<S: UdpSocket> UdpDtlsSocket<S> {
                 MBEDTLS_SSL_PRESET_DEFAULT as i32,
             );
         }
-        Self { inner: socket, ssl_config }
+        Self { context: DtlsWakerContext { waker: None, socket }, ssl_config }
     }
 }
+
+pub struct DtlsWakerContext<S> {
+    waker: Option<Waker>,
+    socket: S,
+}
+// need to decide on framing
+// will be cobs framed struct first
+// then # of bytes to read that is the audio
+impl<S> Stream for UdpTlsSocket<S> {
+    type Item = 
+}
+
+// DTLS Streams
+//
+//Executor
+//  │
+//  ▼
+//UdpDtlsStream::poll_next(&mut cx)
+//  │ Save cx.waker().clone() in callback state
+//  ▼
+//mbedtls_ssl_read(...)
+//  │ Needs encrypted UDP data
+//  ▼
+//recv_callback(state, buf, len)
+//  │ Reconstruct Context from saved waker
+//  ▼
+//UdpSocket::poll_recv_from(buf, &mut cx)
+//  │
+//  ├── Packet available
+//  │     ▼
+//  │   Callback returns byte count
+//  │     ▼
+//  │   Mbed TLS decrypts/authenticates
+//  │     ▼
+//  │   poll_next returns Ready(Some(Ok(message)))
+//  │   [or continues if more protocol work is needed]
+//  │
+//  └── No packet
+//        ▼
+//      Embassy registers waker, returns Pending
+//        ▼
+//      Callback returns WANT_READ
+//        ▼
+//      Mbed TLS returns WANT_READ
+//        ▼
+//      poll_next returns Pending
+//        │
+//        │ Later: packet arrives (or DTLS timer expires)
+//        ▼
+//      Waker wakes executor → poll_next runs again
+//
