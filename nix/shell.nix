@@ -18,6 +18,9 @@ let
       picocom,
       just,
       cmake,
+      clang,
+      libclang,
+      rustPlatform,
     }:
 
     let
@@ -25,7 +28,11 @@ let
       rust-toolchain = fenix.default.toolchain;
     in
     mkShell {
-      nativeBuildInputs = [ pkg-config ];
+      nativeBuildInputs = [
+        pkg-config
+        rustPlatform.bindgenHook
+        libclang
+      ];
       buildInputs = [
         rust-toolchain
         fenix.rust-analyzer
@@ -39,6 +46,7 @@ let
         picocom
         just
         cmake
+        clang
       ]
       ++ lib.optionals isDarwin [
         darwin.cctools

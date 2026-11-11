@@ -18,6 +18,10 @@ serde.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, optional = true }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# Use system headers instead of mbedtls-rs-sys's minimal Clang sysroot on Linux.
+mbedtls-rs-sys = { version = "0.3", features = ["use-gcc"] }
+
 [features]
 default = ["std"]
 std = ["embedded-io-adapters", "tokio", "tokio/net"]

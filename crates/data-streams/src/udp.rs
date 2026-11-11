@@ -1,40 +1,50 @@
 //! Types for UDP Streams
 use core::{
+    ffi::c_void,
     mem::MaybeUninit,
     net::SocketAddr,
+    pin::Pin,
     task::{Context, Poll, Waker},
 };
 
+use futures_core::Stream;
 use mbedtls_rs_sys::{
     MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_PRESET_DEFAULT, MBEDTLS_SSL_TRANSPORT_DATAGRAM,
-    mbedtls_ssl_config, mbedtls_ssl_config_defaults, mbedtls_ssl_config_init,
+    mbedtls_ssl_config, mbedtls_ssl_config_defaults, mbedtls_ssl_config_init, mbedtls_ssl_context,
+    mbedtls_ssl_init, mbedtls_ssl_set_bio, mbedtls_ssl_setup,
 };
+use serde::{Deserialize, Serialize};
 
 mod embedded_net;
 mod tokio;
 
 pub trait UdpSocket {
-    type Error;
-
     fn poll_recv_from(
         &self,
         cx: &mut Context<'_>,
         buf: &mut [u8],
-    ) -> Poll<Result<SocketAddr, Self::Error>>;
+    ) -> Poll<Result<SocketAddr, core::io::Error>>;
 }
 
-pub struct UdpDtlsSocket<S: UdpSocket> {
-    context: DtlsWakerContext<S>,
+pub struct UdpDtlsSocket {
+    context: Box<DtlsWakerContext>,
     ssl_config: Box<mbedtls_ssl_config>,
+    ssl_context: Box<mbedtls_ssl_context>,
 }
 
-impl<S: UdpSocket> UdpDtlsSocket<S> {
-    pub fn new(socket: S) -> Self {
+impl UdpDtlsSocket {
+    pub fn new(socket: Box<dyn UdpSocket>) -> Self {
         let mut ssl_config = Box::new(MaybeUninit::<mbedtls_ssl_config>::uninit());
+        let mut ssl_context = Box::new(MaybeUninit::<mbedtls_ssl_context>::uninit());
         let mut ssl_config = unsafe {
             mbedtls_ssl_config_init(ssl_config.as_mut_ptr());
             ssl_config.assume_init()
         };
+        let mut ssl_context = unsafe {
+            mbedtls_ssl_init(ssl_context.as_mut_ptr());
+            ssl_context.assume_init()
+        };
+
         // TODO: handle i32 C return value (need result type)
         unsafe {
             mbedtls_ssl_config_defaults(
@@ -44,19 +54,76 @@ impl<S: UdpSocket> UdpDtlsSocket<S> {
                 MBEDTLS_SSL_PRESET_DEFAULT as i32,
             );
         }
-        Self { context: DtlsWakerContext { waker: None, socket }, ssl_config }
+
+        let result = unsafe { mbedtls_ssl_setup(&mut *ssl_context, &*ssl_config) };
+        if result != 0 {
+            panic!("error setting up mbedtls ssl");
+        }
+        let mut waker_context = Box::new(DtlsWakerContext { waker: None, socket });
+        // set basic input/output for dtls
+        unsafe {
+            mbedtls_ssl_set_bio(
+                &mut *ssl_context,
+                &mut *waker_context as *mut _ as *mut c_void,
+                Some(send_callback),
+                Some(recv_callback),
+                None,
+            )
+        };
+        Self { context: waker_context, ssl_config, ssl_context }
     }
 }
 
-pub struct DtlsWakerContext<S> {
-    waker: Option<Waker>,
-    socket: S,
+unsafe extern "C" fn recv_callback(
+    context: *mut core::ffi::c_void,
+    buffer: *mut u8,
+    length: usize,
+) -> core::ffi::c_int {
+    let DtlsWakerContext { waker, socket } =
+        unsafe { (context as *mut DtlsWakerContext).as_mut_unchecked() };
+    // TODO: come up with return codes
+    let Some(waker) = waker else { return 1 };
+    let mut cx = Context::from_waker(&waker);
+    let buf = unsafe { core::slice::from_raw_parts_mut(buffer, length) };
+    let poll = socket.poll_recv_from(&mut cx, buf);
+    todo!()
 }
+
+unsafe extern "C" fn send_callback(
+    context: *mut core::ffi::c_void,
+    buffer: *const u8,
+    length: usize,
+) -> core::ffi::c_int {
+    todo!()
+}
+
+pub struct DtlsWakerContext {
+    waker: Option<Waker>,
+    socket: Box<dyn UdpSocket>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub struct AudioPacketHeader {
+    pub sequence: u16,
+    pub stream_id: u8,
+}
+
+pub struct AudioPacketRef<'a> {
+    pub header: AudioPacketHeader,
+    pub pcm: &'a [u8],
+}
+
+pub type AudioPacket = AudioPacketRef<'static>;
+
 // need to decide on framing
 // will be cobs framed struct first
 // then # of bytes to read that is the audio
-impl<S> Stream for UdpTlsSocket<S> {
-    type Item = 
+impl Stream for UdpDtlsSocket {
+    type Item = AudioPacket;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        todo!()
+    }
 }
 
 // DTLS Streams
