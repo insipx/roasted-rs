@@ -1,44 +1,49 @@
 //! Types for UDP Streams
+use alloc::boxed::Box;
 use core::{
+    cell::RefCell,
     ffi::{c_int, c_void},
     mem::MaybeUninit,
-    net::SocketAddr,
     pin::Pin,
     task::{Context, Poll, Waker},
 };
 
 use futures_core::Stream;
 use mbedtls_rs_sys::{
-    MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY, MBEDTLS_ERR_SSL_WANT_READ, MBEDTLS_ERR_SSL_WANT_WRITE,
-    MBEDTLS_SSL_IN_CONTENT_LEN, MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_PRESET_DEFAULT,
-    MBEDTLS_SSL_TRANSPORT_DATAGRAM, mbedtls_ssl_config, mbedtls_ssl_config_defaults,
-    mbedtls_ssl_config_init, mbedtls_ssl_context, mbedtls_ssl_init, mbedtls_ssl_read,
-    mbedtls_ssl_set_bio, mbedtls_ssl_setup,
+    MBEDTLS_ERR_SSL_INTERNAL_ERROR, MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY, MBEDTLS_ERR_SSL_WANT_READ,
+    MBEDTLS_ERR_SSL_WANT_WRITE, MBEDTLS_SSL_IN_CONTENT_LEN, MBEDTLS_SSL_IS_CLIENT,
+    MBEDTLS_SSL_PRESET_DEFAULT, MBEDTLS_SSL_TRANSPORT_DATAGRAM, mbedtls_ssl_config,
+    mbedtls_ssl_config_defaults, mbedtls_ssl_config_init, mbedtls_ssl_context, mbedtls_ssl_init,
+    mbedtls_ssl_read, mbedtls_ssl_set_bio, mbedtls_ssl_setup,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::error::DtlsReadError;
 
-mod embedded_net;
+#[cfg(feature = "embassy-net")]
+pub mod embedded_net;
+#[cfg(feature = "std")]
 mod tokio;
 
 pub trait UdpSocket {
-    fn poll_recv_from(
+    fn poll_recv(
         &self,
         cx: &mut Context<'_>,
         buf: &mut [u8],
-    ) -> Poll<Result<SocketAddr, core::io::Error>>;
+    ) -> Poll<Result<usize, core::io::Error>>;
 }
 
-pub struct UdpDtlsSocket {
-    context: Box<DtlsWakerContext>,
+pub struct UdpDtlsSocket<'net> {
+    context: Box<RefCell<DtlsWakerContext<'net>>>,
     ssl_config: Box<mbedtls_ssl_config>,
     ssl_context: Box<mbedtls_ssl_context>,
+    // the constant size of the array here is way large for emberedded (16kb) and we should make it
+    // smaller
     recv_buff: [u8; MBEDTLS_SSL_IN_CONTENT_LEN as usize],
 }
 
-impl UdpDtlsSocket {
-    pub fn new(socket: Box<dyn UdpSocket>) -> Self {
+impl<'net> UdpDtlsSocket<'net> {
+    pub fn new(socket: Box<dyn UdpSocket + 'net>) -> Self {
         let mut ssl_config = Box::new(MaybeUninit::<mbedtls_ssl_config>::uninit());
         let mut ssl_context = Box::new(MaybeUninit::<mbedtls_ssl_context>::uninit());
         let mut ssl_config = unsafe {
@@ -64,12 +69,12 @@ impl UdpDtlsSocket {
         if result != 0 {
             panic!("error setting up mbedtls ssl");
         }
-        let mut waker_context = Box::new(DtlsWakerContext { waker: None, socket });
+        let waker_context = Box::new(RefCell::new(DtlsWakerContext { waker: None, socket }));
         // set basic input/output for dtls
         unsafe {
             mbedtls_ssl_set_bio(
                 &mut *ssl_context,
-                &mut *waker_context as *mut _ as *mut c_void,
+                core::ptr::from_ref(waker_context.as_ref()).cast_mut().cast(),
                 Some(send_callback),
                 Some(recv_callback),
                 None,
@@ -84,32 +89,39 @@ impl UdpDtlsSocket {
     }
 }
 
-unsafe extern "C" fn recv_callback(
-    context: *mut core::ffi::c_void,
-    buffer: *mut u8,
-    length: usize,
-) -> core::ffi::c_int {
-    let DtlsWakerContext { waker, socket } =
-        unsafe { (context as *mut DtlsWakerContext).as_mut_unchecked() };
-    // TODO: come up with return codes
-    let Some(waker) = waker else { return 1 };
-    let mut cx = Context::from_waker(&waker);
+unsafe extern "C" fn recv_callback(context: *mut c_void, buffer: *mut u8, length: usize) -> c_int {
+    let context = unsafe { &*context.cast::<RefCell<DtlsWakerContext<'_>>>() };
+    let context = context.borrow();
+    let Some(waker) = &context.waker else {
+        return MBEDTLS_ERR_SSL_INTERNAL_ERROR;
+    };
+    let mut cx = Context::from_waker(waker);
     let buf = unsafe { core::slice::from_raw_parts_mut(buffer, length) };
-    let poll = socket.poll_recv_from(&mut cx, buf);
-    todo!()
+    match context.socket.poll_recv(&mut cx, buf) {
+        Poll::Ready(Ok(0)) => {
+            // 0 length datagrams are not the end of the stream
+            waker.wake_by_ref();
+            MBEDTLS_ERR_SSL_WANT_READ
+        }
+        Poll::Ready(Ok(count)) if count <= length => {
+            c_int::try_from(count).unwrap_or(MBEDTLS_ERR_SSL_INTERNAL_ERROR)
+        }
+        Poll::Pending => MBEDTLS_ERR_SSL_WANT_READ,
+        Poll::Ready(_) => MBEDTLS_ERR_SSL_INTERNAL_ERROR,
+    }
 }
 
 unsafe extern "C" fn send_callback(
-    context: *mut core::ffi::c_void,
+    context: *mut c_void,
     buffer: *const u8,
     length: usize,
-) -> core::ffi::c_int {
+) -> c_int {
     todo!()
 }
 
-pub struct DtlsWakerContext {
+struct DtlsWakerContext<'net> {
     waker: Option<Waker>,
-    socket: Box<dyn UdpSocket>,
+    socket: Box<dyn UdpSocket + 'net>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
@@ -127,12 +139,12 @@ pub type AudioPacket = AudioPacketRef<'static>;
 
 /// Reads a single DTLS record.
 /// The caller must stop polling after a `DtlsReadError::Tls` error.
-impl Stream for UdpDtlsSocket {
+impl Stream for UdpDtlsSocket<'_> {
     type Item = Result<(AudioPacketHeader, alloc::boxed::Box<[u8]>), DtlsReadError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.as_mut().get_mut();
-        match &mut this.context.waker {
+        match &mut this.context.borrow_mut().waker {
             Some(waker) => waker.clone_from(cx.waker()),
             slot @ None => *slot = Some(cx.waker().clone()),
         }
@@ -165,43 +177,3 @@ impl Stream for UdpDtlsSocket {
         }
     }
 }
-
-// DTLS Streams
-//
-//Executor
-//  │
-//  ▼
-//UdpDtlsStream::poll_next(&mut cx)
-//  │ Save cx.waker().clone() in callback state
-//  ▼
-//mbedtls_ssl_read(...)
-//  │ Needs encrypted UDP data
-//  ▼
-//recv_callback(state, buf, len)
-//  │ Reconstruct Context from saved waker
-//  ▼
-//UdpSocket::poll_recv_from(buf, &mut cx)
-//  │
-//  ├── Packet available
-//  │     ▼
-//  │   Callback returns byte count
-//  │     ▼
-//  │   Mbed TLS decrypts/authenticates
-//  │     ▼
-//  │   poll_next returns Ready(Some(Ok(message)))
-//  │   [or continues if more protocol work is needed]
-//  │
-//  └── No packet
-//        ▼
-//      Embassy registers waker, returns Pending
-//        ▼
-//      Callback returns WANT_READ
-//        ▼
-//      Mbed TLS returns WANT_READ
-//        ▼
-//      poll_next returns Pending
-//        │
-//        │ Later: packet arrives (or DTLS timer expires)
-//        ▼
-//      Waker wakes executor → poll_next runs again
-//

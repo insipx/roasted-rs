@@ -1,19 +1,17 @@
-use core::{
-    net::SocketAddr,
-    task::{Context, Poll},
-};
+use core::task::{Context, Poll};
 
 use tokio::{io::ReadBuf, net::UdpSocket};
 
 use super::UdpSocket as UdpSocketT;
 
 impl UdpSocketT for UdpSocket {
-    fn poll_recv_from(
+    fn poll_recv(
         &self,
         cx: &mut Context<'_>,
         buf: &mut [u8],
-    ) -> Poll<Result<SocketAddr, core::io::Error>> {
+    ) -> Poll<Result<usize, core::io::Error>> {
         let mut rbuf = ReadBuf::new(buf);
-        self.poll_recv_from(cx, &mut rbuf)
+        core::task::ready!(self.poll_recv(cx, &mut rbuf))?;
+        Poll::Ready(Ok(rbuf.filled().len()))
     }
 }

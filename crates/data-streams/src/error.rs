@@ -1,3 +1,4 @@
+use alloc::string::String;
 use core::ffi::c_int;
 
 use thiserror::Error;

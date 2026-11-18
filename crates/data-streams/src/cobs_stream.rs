@@ -1,5 +1,5 @@
 //! Cobs delineated streams for Zippy Response and Request data types
-use alloc::boxed::Box;
+use alloc::{boxed::Box, format};
 use core::{
     marker::PhantomData,
     pin::Pin,
