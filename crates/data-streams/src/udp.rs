@@ -9,9 +9,11 @@ use core::{
 
 use futures_core::Stream;
 use mbedtls_rs_sys::{
-    MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_PRESET_DEFAULT, MBEDTLS_SSL_TRANSPORT_DATAGRAM,
-    mbedtls_ssl_config, mbedtls_ssl_config_defaults, mbedtls_ssl_config_init, mbedtls_ssl_context,
-    mbedtls_ssl_init, mbedtls_ssl_set_bio, mbedtls_ssl_setup,
+    MBEDTLS_ERR_SSL_BAD_INPUT_DATA, MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY, MBEDTLS_ERR_SSL_WANT_READ,
+    MBEDTLS_ERR_SSL_WANT_WRITE, MBEDTLS_SSL_IN_CONTENT_LEN, MBEDTLS_SSL_IS_CLIENT,
+    MBEDTLS_SSL_PRESET_DEFAULT, MBEDTLS_SSL_TRANSPORT_DATAGRAM, mbedtls_ssl_config,
+    mbedtls_ssl_config_defaults, mbedtls_ssl_config_init, mbedtls_ssl_context, mbedtls_ssl_init,
+    mbedtls_ssl_read, mbedtls_ssl_set_bio, mbedtls_ssl_setup,
 };
 use serde::{Deserialize, Serialize};
 
@@ -30,6 +32,7 @@ pub struct UdpDtlsSocket {
     context: Box<DtlsWakerContext>,
     ssl_config: Box<mbedtls_ssl_config>,
     ssl_context: Box<mbedtls_ssl_context>,
+    recv_buff: [u8; MBEDTLS_SSL_IN_CONTENT_LEN as usize],
 }
 
 impl UdpDtlsSocket {
@@ -70,7 +73,12 @@ impl UdpDtlsSocket {
                 None,
             )
         };
-        Self { context: waker_context, ssl_config, ssl_context }
+        Self {
+            context: waker_context,
+            ssl_config,
+            ssl_context,
+            recv_buff: [0u8; MBEDTLS_SSL_IN_CONTENT_LEN as usize],
+        }
     }
 }
 
@@ -115,14 +123,41 @@ pub struct AudioPacketRef<'a> {
 
 pub type AudioPacket = AudioPacketRef<'static>;
 
-// need to decide on framing
-// will be cobs framed struct first
-// then # of bytes to read that is the audio
+/// Reads a single DTLS record.
+/// caller must stop polling after fatal error
 impl Stream for UdpDtlsSocket {
-    type Item = AudioPacket;
+    type Item = Result<(AudioPacketHeader, alloc::boxed::Box<[u8]>), core::ffi::c_int>;
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        todo!()
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.as_mut().get_mut();
+        match &mut this.context.waker {
+            Some(waker) => waker.clone_from(cx.waker()),
+            slot @ None => *slot = Some(cx.waker().clone()),
+        }
+
+        let result = unsafe {
+            mbedtls_ssl_read(
+                &mut *this.ssl_context,
+                this.recv_buff.as_mut_ptr(),
+                this.recv_buff.len(),
+            )
+        };
+
+        match result {
+            MBEDTLS_ERR_SSL_WANT_READ | MBEDTLS_ERR_SSL_WANT_WRITE => Poll::Pending,
+            0 | MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY => Poll::Ready(None),
+            error if error < 0 => Poll::Ready(Some(Err(error))),
+            count => {
+                let [high, low, stream_id, pcm @ ..] = &self.recv_buff[..count as usize] else {
+                    return Poll::Ready(Some(Err(MBEDTLS_ERR_SSL_BAD_INPUT_DATA)));
+                };
+                let header = AudioPacketHeader {
+                    sequence: u16::from_be_bytes([*high, *low]),
+                    stream_id: *stream_id,
+                };
+                Poll::Ready(Some(Ok((header, pcm.into()))))
+            }
+        }
     }
 }
 
