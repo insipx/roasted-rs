@@ -1,3 +1,5 @@
+use core::ffi::c_int;
+
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -8,3 +10,12 @@ pub enum DataStreamError {
 }
 
 pub type Result<T> = core::result::Result<T, DataStreamError>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum DtlsReadError {
+    #[error("audio record has {actual} bytes, but its header requires 3")]
+    TruncatedHeader { actual: usize },
+
+    #[error("Mbed TLS read failed with status {code}")]
+    Tls { code: c_int },
+}

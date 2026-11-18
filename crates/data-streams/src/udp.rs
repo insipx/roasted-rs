@@ -1,6 +1,6 @@
 //! Types for UDP Streams
 use core::{
-    ffi::c_void,
+    ffi::{c_int, c_void},
     mem::MaybeUninit,
     net::SocketAddr,
     pin::Pin,
@@ -9,13 +9,15 @@ use core::{
 
 use futures_core::Stream;
 use mbedtls_rs_sys::{
-    MBEDTLS_ERR_SSL_BAD_INPUT_DATA, MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY, MBEDTLS_ERR_SSL_WANT_READ,
-    MBEDTLS_ERR_SSL_WANT_WRITE, MBEDTLS_SSL_IN_CONTENT_LEN, MBEDTLS_SSL_IS_CLIENT,
-    MBEDTLS_SSL_PRESET_DEFAULT, MBEDTLS_SSL_TRANSPORT_DATAGRAM, mbedtls_ssl_config,
-    mbedtls_ssl_config_defaults, mbedtls_ssl_config_init, mbedtls_ssl_context, mbedtls_ssl_init,
-    mbedtls_ssl_read, mbedtls_ssl_set_bio, mbedtls_ssl_setup,
+    MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY, MBEDTLS_ERR_SSL_WANT_READ, MBEDTLS_ERR_SSL_WANT_WRITE,
+    MBEDTLS_SSL_IN_CONTENT_LEN, MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_PRESET_DEFAULT,
+    MBEDTLS_SSL_TRANSPORT_DATAGRAM, mbedtls_ssl_config, mbedtls_ssl_config_defaults,
+    mbedtls_ssl_config_init, mbedtls_ssl_context, mbedtls_ssl_init, mbedtls_ssl_read,
+    mbedtls_ssl_set_bio, mbedtls_ssl_setup,
 };
 use serde::{Deserialize, Serialize};
+
+use crate::error::DtlsReadError;
 
 mod embedded_net;
 mod tokio;
@@ -124,9 +126,9 @@ pub struct AudioPacketRef<'a> {
 pub type AudioPacket = AudioPacketRef<'static>;
 
 /// Reads a single DTLS record.
-/// caller must stop polling after fatal error
+/// The caller must stop polling after a `DtlsReadError::Tls` error.
 impl Stream for UdpDtlsSocket {
-    type Item = Result<(AudioPacketHeader, alloc::boxed::Box<[u8]>), core::ffi::c_int>;
+    type Item = Result<(AudioPacketHeader, alloc::boxed::Box<[u8]>), DtlsReadError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.as_mut().get_mut();
@@ -146,10 +148,13 @@ impl Stream for UdpDtlsSocket {
         match result {
             MBEDTLS_ERR_SSL_WANT_READ | MBEDTLS_ERR_SSL_WANT_WRITE => Poll::Pending,
             0 | MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY => Poll::Ready(None),
-            error if error < 0 => Poll::Ready(Some(Err(error))),
+            code if code < 0 => Poll::Ready(Some(Err(DtlsReadError::Tls { code }))),
             count => {
-                let [high, low, stream_id, pcm @ ..] = &self.recv_buff[..count as usize] else {
-                    return Poll::Ready(Some(Err(MBEDTLS_ERR_SSL_BAD_INPUT_DATA)));
+                let record = &self.recv_buff[..count as usize];
+                let [high, low, stream_id, pcm @ ..] = record else {
+                    return Poll::Ready(Some(Err(DtlsReadError::TruncatedHeader {
+                        actual: record.len(),
+                    })));
                 };
                 let header = AudioPacketHeader {
                     sequence: u16::from_be_bytes([*high, *low]),
