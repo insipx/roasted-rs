@@ -14,4 +14,8 @@ impl UdpSocketT for UdpSocket {
         core::task::ready!(self.poll_recv(cx, &mut rbuf))?;
         Poll::Ready(Ok(rbuf.filled().len()))
     }
+
+    fn poll_send(&self, cx: &mut Context<'_>, buf: &[u8]) -> Poll<core::io::Result<usize>> {
+        UdpSocket::poll_send(self, cx, buf)
+    }
 }

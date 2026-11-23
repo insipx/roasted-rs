@@ -5,7 +5,7 @@ use core::{
 
 use embassy_net::{
     IpEndpoint,
-    udp::{RecvError, UdpSocket as EmbassyUdpSocket},
+    udp::{RecvError, SendError, UdpSocket as EmbassyUdpSocket},
 };
 
 use super::UdpSocket;
@@ -37,5 +37,17 @@ impl UdpSocket for EmbassyPeerSocket<'_> {
             }
             Poll::Pending => Poll::Pending,
         }
+    }
+
+    fn poll_send(&self, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+        let result = core::task::ready!(self.socket.poll_send_to(buf, self.peer, cx));
+        let result = result.map_err(|error| {
+            io::Error::from(match error {
+                SendError::NoRoute => io::ErrorKind::HostUnreachable,
+                SendError::SocketNotBound => io::ErrorKind::NotConnected,
+                SendError::PacketTooLarge => io::ErrorKind::InvalidInput,
+            })
+        });
+        Poll::Ready(result.map(|()| buf.len()))
     }
 }

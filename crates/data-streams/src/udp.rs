@@ -42,7 +42,7 @@ pub trait UdpSocket {
     fn poll_send(
         &self,
         cx: &mut Context<'_>,
-        buf: &mut [u8],
+        buf: &[u8],
     ) -> Poll<Result<usize, core::io::Error>>;
 }
 
