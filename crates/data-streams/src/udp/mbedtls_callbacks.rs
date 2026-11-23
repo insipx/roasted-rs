@@ -33,7 +33,23 @@ pub(super) unsafe extern "C" fn send_callback(
     buffer: *const u8,
     length: usize,
 ) -> c_int {
-    todo!()
+    let Ok(sent) = c_int::try_from(length) else {
+        return MBEDTLS_ERR_SSL_INTERNAL_ERROR;
+    };
+    let context = unsafe { &*context.cast::<RefCell<DtlsWakerContext<'_>>>() };
+    let context = context.borrow();
+    let Some(waker) = &context.waker else {
+        return MBEDTLS_ERR_SSL_INTERNAL_ERROR;
+    };
+    let mut cx = Context::from_waker(waker);
+    let buf =
+        if length == 0 { &[] } else { unsafe { core::slice::from_raw_parts(buffer, length) } };
+
+    match context.socket.poll_send(&mut cx, buf) {
+        Poll::Ready(Ok(count)) if count == length => sent,
+        Poll::Pending => MBEDTLS_ERR_SSL_WANT_WRITE,
+        Poll::Ready(_) => MBEDTLS_ERR_SSL_INTERNAL_ERROR, // cannot retry partial send with dtls
+    }
 }
 
 pub(super) unsafe extern "C" fn timer_callback() -> c_int {

@@ -1,5 +1,5 @@
 //! Types for UDP Streams
-use alloc::boxed::Box;
+use alloc::{boxed::Box, vec::Vec};
 use core::{
     cell::RefCell,
     ffi::{c_int, c_void},
