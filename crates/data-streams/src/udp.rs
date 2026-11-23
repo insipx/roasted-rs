@@ -28,6 +28,8 @@ mod tokio;
 mod mbedtls_callbacks;
 mod sink;
 mod stream;
+#[cfg(any(feature = "std", feature = "embassy-net"))]
+mod timer;
 
 pub use mbedtls_callbacks::*;
 // pub use sink::*;
@@ -59,6 +61,7 @@ pub struct UdpDtlsSocket<'net> {
 }
 
 impl<'net> UdpDtlsSocket<'net> {
+    /// On Tokio, poll this socket in a runtime with time enabled.
     pub fn new(socket: Box<dyn UdpSocket + 'net>) -> Self {
         let mut ssl_config = Box::new(MaybeUninit::<mbedtls_ssl_config>::uninit());
         let mut ssl_context = Box::new(MaybeUninit::<mbedtls_ssl_context>::uninit());
@@ -85,16 +88,29 @@ impl<'net> UdpDtlsSocket<'net> {
         if result != 0 {
             panic!("error setting up mbedtls ssl");
         }
-        let waker_context = Box::new(RefCell::new(DtlsWakerContext { waker: None, socket }));
+        let waker_context = Box::new(RefCell::new(DtlsWakerContext {
+            waker: None,
+            socket,
+            #[cfg(any(feature = "std", feature = "embassy-net"))]
+            delay: None,
+        }));
         // set basic input/output for dtls
         unsafe {
+            let context = core::ptr::from_ref(waker_context.as_ref()).cast_mut().cast();
             mbedtls_ssl_set_bio(
                 &mut *ssl_context,
-                core::ptr::from_ref(waker_context.as_ref()).cast_mut().cast(),
+                context,
                 Some(send_callback),
                 Some(recv_callback),
                 None,
-            )
+            );
+            #[cfg(any(feature = "std", feature = "embassy-net"))]
+            mbedtls_rs_sys::mbedtls_ssl_set_timer_cb(
+                &mut *ssl_context,
+                context,
+                Some(timer::set_delay),
+                Some(timer::get_delay),
+            );
         };
         Self {
             context: waker_context,
@@ -104,11 +120,20 @@ impl<'net> UdpDtlsSocket<'net> {
             pending_send: None,
         }
     }
+
+    fn poll_timer(&self, cx: &mut Context<'_>) {
+        #[cfg(any(feature = "std", feature = "embassy-net"))]
+        if let Some(delay) = &mut self.context.borrow_mut().delay {
+            delay.poll_wake(cx);
+        }
+    }
 }
 
 struct DtlsWakerContext<'net> {
     waker: Option<Waker>,
     socket: Box<dyn UdpSocket + 'net>,
+    #[cfg(any(feature = "std", feature = "embassy-net"))]
+    delay: Option<timer::Delay>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]

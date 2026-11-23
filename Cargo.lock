@@ -3378,6 +3378,8 @@ name = "roasted-data-streams"
 version = "0.1.0"
 dependencies = [
  "embassy-net",
+ "embassy-time",
+ "embassy-time-driver",
  "embedded-io-adapters",
  "embedded-io-async 0.7.0",
  "futures-core",

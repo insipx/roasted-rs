@@ -43,7 +43,10 @@ impl Sink<AudioPacket> for UdpDtlsSocket<'_> {
             unsafe { mbedtls_ssl_write(&mut *this.ssl_context, send_buf.as_ptr(), send_buf.len()) };
 
         match result {
-            MBEDTLS_ERR_SSL_WANT_READ | MBEDTLS_ERR_SSL_WANT_WRITE => Poll::Pending,
+            MBEDTLS_ERR_SSL_WANT_READ | MBEDTLS_ERR_SSL_WANT_WRITE => {
+                this.poll_timer(cx);
+                Poll::Pending
+            }
             code if code < 0 => Poll::Ready(Err(DtlsSendError::Tls { code })),
             written if written as usize == send_buf.len() => {
                 this.pending_send = None;

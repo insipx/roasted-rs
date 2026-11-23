@@ -51,7 +51,3 @@ pub(super) unsafe extern "C" fn send_callback(
         Poll::Ready(_) => MBEDTLS_ERR_SSL_INTERNAL_ERROR, // cannot retry partial send with dtls
     }
 }
-
-pub(super) unsafe extern "C" fn timer_callback() -> c_int {
-    todo!()
-}

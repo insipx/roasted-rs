@@ -21,7 +21,10 @@ impl Stream for UdpDtlsSocket<'_> {
         };
 
         match result {
-            MBEDTLS_ERR_SSL_WANT_READ | MBEDTLS_ERR_SSL_WANT_WRITE => Poll::Pending,
+            MBEDTLS_ERR_SSL_WANT_READ | MBEDTLS_ERR_SSL_WANT_WRITE => {
+                this.poll_timer(cx);
+                Poll::Pending
+            }
             0 | MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY => Poll::Ready(None),
             code if code < 0 => Poll::Ready(Some(Err(DtlsReadError::Tls { code }))),
             count => {
