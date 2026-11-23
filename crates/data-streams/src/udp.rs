@@ -30,8 +30,8 @@ mod sink;
 mod stream;
 
 pub use mbedtls_callbacks::*;
-pub use sink::*;
-pub use stream::*;
+// pub use sink::*;
+// pub use stream::*;
 
 pub trait UdpSocket {
     fn poll_recv(
