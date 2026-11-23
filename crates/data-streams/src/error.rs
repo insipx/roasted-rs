@@ -20,3 +20,12 @@ pub enum DtlsReadError {
     #[error("Mbed TLS read failed with status {code}")]
     Tls { code: c_int },
 }
+
+#[derive(Debug, thiserror::Error)]
+pub enum DtlsSendError {
+    #[error("Mbed TLS write failed with status {code}")]
+    Tls { code: c_int },
+
+    #[error("Mbed TLS accepted {written} of {expected} bytes in a DTLS record")]
+    ShortWrite { written: usize, expected: usize },
+}

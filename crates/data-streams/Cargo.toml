@@ -14,7 +14,7 @@ embedded-io-adapters = { workspace = true, features = [
 ], optional = true }
 embedded-io-async.workspace = true
 futures-core.workspace = true
-futures-util.workspace = true
+futures-util = { workspace = true, features = ["sink"] }
 mbedtls-rs-sys = { version = "0.3" }
 pin-project-lite.workspace = true
 postcard.workspace = true

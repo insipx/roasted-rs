@@ -1,0 +1,52 @@
+use futures_util::sink::Sink;
+use mbedtls_rs_sys::mbedtls_ssl_write;
+
+use super::*;
+use crate::error::DtlsSendError;
+
+impl Sink<AudioPacket> for UdpDtlsSocket<'_> {
+    type Error = DtlsSendError;
+
+    fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        if self.pending_send.is_none() {
+            return Poll::Ready(Ok(()));
+        }
+
+        self.poll_flush(cx)
+    }
+
+    fn start_send(self: Pin<&mut Self>, item: AudioPacket) -> Result<(), Self::Error> {
+        todo!()
+    }
+
+    // A write error is terminal for this DTLS session.
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        let this = self.as_mut().get_mut();
+        let Some(send_buf) = this.pending_send.as_ref() else {
+            return Poll::Ready(Ok(()));
+        };
+        match &mut this.context.borrow_mut().waker {
+            Some(waker) => waker.clone_from(cx.waker()),
+            slot @ None => *slot = Some(cx.waker().clone()),
+        }
+        let result =
+            unsafe { mbedtls_ssl_write(&mut *this.ssl_context, send_buf.as_ptr(), send_buf.len()) };
+
+        match result {
+            MBEDTLS_ERR_SSL_WANT_READ | MBEDTLS_ERR_SSL_WANT_WRITE => Poll::Pending,
+            code if code < 0 => Poll::Ready(Err(DtlsSendError::Tls { code })),
+            written if written as usize == send_buf.len() => {
+                this.pending_send = None;
+                Poll::Ready(Ok(()))
+            }
+            written => Poll::Ready(Err(DtlsSendError::ShortWrite {
+                written: written as usize,
+                expected: send_buf.len(),
+            })),
+        }
+    }
+
+    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        todo!()
+    }
+}

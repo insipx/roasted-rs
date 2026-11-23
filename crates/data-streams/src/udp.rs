@@ -25,10 +25,11 @@ pub mod embedded_net;
 #[cfg(feature = "std")]
 mod tokio;
 
-mod common_trait;
+mod mbedtls_callbacks;
 mod sink;
 mod stream;
 
+pub use mbedtls_callbacks::*;
 pub use sink::*;
 pub use stream::*;
 
@@ -39,13 +40,13 @@ pub trait UdpSocket {
         buf: &mut [u8],
     ) -> Poll<Result<usize, core::io::Error>>;
 
-    fn poll_send(
-        &self,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<Result<usize, core::io::Error>>;
+    fn poll_send(&self, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, core::io::Error>>;
 }
 
+/// A UDP Socket that uses DTLS to communicate
+/// _NOTE:_ MUST be owned/used by one task. If split into stream and sink parts
+/// wakes will may be overwritten/missed.
+// TODO: can use multiple wakers to make splitting into stream/sink safe.
 pub struct UdpDtlsSocket<'net> {
     context: Box<RefCell<DtlsWakerContext<'net>>>,
     ssl_config: Box<mbedtls_ssl_config>,
@@ -53,6 +54,8 @@ pub struct UdpDtlsSocket<'net> {
     // the constant size of the array here is way large for emberedded (16kb) and we should make it
     // smaller
     recv_buff: [u8; MBEDTLS_SSL_IN_CONTENT_LEN as usize],
+    /// holds apending audio packet to be sent
+    pending_send: Option<Vec<u8>>,
 }
 
 impl<'net> UdpDtlsSocket<'net> {
@@ -98,38 +101,9 @@ impl<'net> UdpDtlsSocket<'net> {
             ssl_config,
             ssl_context,
             recv_buff: [0u8; MBEDTLS_SSL_IN_CONTENT_LEN as usize],
+            pending_send: None,
         }
     }
-}
-
-unsafe extern "C" fn recv_callback(context: *mut c_void, buffer: *mut u8, length: usize) -> c_int {
-    let context = unsafe { &*context.cast::<RefCell<DtlsWakerContext<'_>>>() };
-    let context = context.borrow();
-    let Some(waker) = &context.waker else {
-        return MBEDTLS_ERR_SSL_INTERNAL_ERROR;
-    };
-    let mut cx = Context::from_waker(waker);
-    let buf = unsafe { core::slice::from_raw_parts_mut(buffer, length) };
-    match context.socket.poll_recv(&mut cx, buf) {
-        Poll::Ready(Ok(0)) => {
-            // 0 length datagrams are not the end of the stream
-            waker.wake_by_ref();
-            MBEDTLS_ERR_SSL_WANT_READ
-        }
-        Poll::Ready(Ok(count)) if count <= length => {
-            c_int::try_from(count).unwrap_or(MBEDTLS_ERR_SSL_INTERNAL_ERROR)
-        }
-        Poll::Pending => MBEDTLS_ERR_SSL_WANT_READ,
-        Poll::Ready(_) => MBEDTLS_ERR_SSL_INTERNAL_ERROR,
-    }
-}
-
-unsafe extern "C" fn send_callback(
-    context: *mut c_void,
-    buffer: *const u8,
-    length: usize,
-) -> c_int {
-    todo!()
 }
 
 struct DtlsWakerContext<'net> {
