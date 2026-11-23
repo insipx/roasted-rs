@@ -23,6 +23,9 @@ pub enum DtlsReadError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum DtlsSendError {
+    #[error("a DTLS record is already queued for writing")]
+    WritePending,
+
     #[error("Mbed TLS write failed with status {code}")]
     Tls { code: c_int },
 

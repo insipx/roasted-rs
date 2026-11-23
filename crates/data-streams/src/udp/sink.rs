@@ -16,7 +16,17 @@ impl Sink<AudioPacket> for UdpDtlsSocket<'_> {
     }
 
     fn start_send(self: Pin<&mut Self>, item: AudioPacket) -> Result<(), Self::Error> {
-        todo!()
+        let this = self.get_mut();
+        if this.pending_send.is_some() {
+            return Err(DtlsSendError::WritePending);
+        }
+
+        let mut record = Vec::with_capacity(3 + item.pcm.len());
+        record.extend_from_slice(&item.header.sequence.to_be_bytes());
+        record.push(item.header.stream_id);
+        record.extend_from_slice(item.pcm);
+        this.pending_send = Some(record);
+        Ok(())
     }
 
     // A write error is terminal for this DTLS session.
