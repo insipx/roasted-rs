@@ -15,3 +15,5 @@ pub mod db {
     pub const DB_HEADER: &[u8; HEADER_SIZE] = b"ZIPPY_DB";
     pub const DB_START: u32 = 8;
 }
+
+pub const DTLS_ROOT_CA: &[u8] = include_bytes!("certs/volos-root-ca.der");
