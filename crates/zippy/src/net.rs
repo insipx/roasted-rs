@@ -1,16 +1,24 @@
 //! Background runner task for embassy radio wifi interface.
 //! Also handles TCP and UDP socket connections for Zippy
 
-use alloc::string::String;
-use core::time::Duration;
+use alloc::{boxed::Box, ffi::CString, string::String};
+use core::{ffi::CStr, time::Duration};
 
 use anyhow::{Result, anyhow, bail};
 use backon::{ExponentialBuilder, Retryable};
 use embassy_futures::select;
-use embassy_net::{Stack, dns::DnsQueryType, tcp::TcpSocket};
+use embassy_net::{
+    IpAddress, IpEndpoint, Stack,
+    dns::DnsQueryType,
+    tcp::TcpSocket,
+    udp::{PacketMetadata, UdpSocket},
+};
+use esp_hal::rng::Trng;
+use roasted_data_streams::udp::{UdpDtlsSocket, embedded_net::EmbassyPeerSocket};
 use url::Url;
 
 use crate::{
+    configuration::DTLS_ROOT_CA,
     db::{self, DbReader},
     eventbus::Events,
 };
@@ -53,15 +61,25 @@ async fn run(args: Args<'_>) -> Result<()> {
     let mut subscriber = crate::eventbus::subscriber()?;
     let Args { stack, db } = args;
     let (mut rx, mut tx) = ([0u8; 128], [0u8; 128]);
+    let mut udp_channels = UdpChannels::new();
     stack.wait_config_up().await;
-    let mut session = setup_channels(&db, stack, &mut rx, &mut tx).await?;
+    let url = db.daemon_url().await.ok_or(anyhow!("no daemon url set"))?;
+    let udp_port: u16 = db.udp_port().await.as_deref().unwrap_or("54444").parse()?;
+    let url = url.parse()?;
+    let (ip, port) = find_ip_and_port(&url, stack).await?;
+    let host = CString::new(url.host_str().ok_or(anyhow!("no host"))?).expect("CString failed");
+    let mut udp_session =
+        setup_udp(host.as_c_str(), ip, udp_port, stack, &mut udp_channels).await?;
+    let mut session = setup_tcp(ip, port, stack, &mut rx, &mut tx).await?;
     tracing::info!(addr = ?session.remote_endpoint(), "tcp connected");
     loop {
         match subscriber.next_message_pure().await {
             Events::SetDaemonUrl => {
+                let url = db.daemon_url().await.ok_or(anyhow!("no daemon url set"))?;
+                let (ip, port) = find_ip_and_port(&url.parse()?, stack).await?;
                 // TODO: should do a ordered shutdown of socket close etc.
                 drop(session);
-                session = setup_channels(&db, &stack, &mut rx, &mut tx).await?;
+                session = setup_tcp(ip, port, &stack, &mut rx, &mut tx).await?;
             }
             _ => continue,
         };
@@ -69,23 +87,66 @@ async fn run(args: Args<'_>) -> Result<()> {
     Ok(())
 }
 
-async fn setup_channels<'a>(
-    db: &DbReader<String>,
+struct UdpChannels {
+    rx_meta: [PacketMetadata; 4],
+    tx_meta: [PacketMetadata; 4],
+    rx: [u8; 4096],
+    tx: [u8; 4096],
+}
+
+impl UdpChannels {
+    fn new() -> Self {
+        Self {
+            rx_meta: [PacketMetadata::EMPTY; 4],
+            tx_meta: [PacketMetadata::EMPTY; 4],
+            rx: [0u8; 4096],
+            tx: [0u8; 4096],
+        }
+    }
+
+    fn into_tuple(self) -> ([PacketMetadata; 4], [PacketMetadata; 4], [u8; 4096], [u8; 4096]) {
+        (self.rx_meta, self.tx_meta, self.rx, self.tx)
+    }
+}
+
+async fn setup_tcp<'a>(
+    ip: IpAddress,
+    port: u16,
     stack: &Stack<'static>,
     rx: &'a mut [u8],
     tx: &'a mut [u8],
 ) -> Result<TcpChannel<'a>> {
-    let url = db.daemon_url().await.ok_or(anyhow!("no daemon url set"))?;
-    let (ip, port) = find_ip_and_port(url.parse()?, stack).await?;
     let tcp = TcpSocket::new(*stack, rx, tx);
     let tcp_channel =
         TcpChannel::builder().stack(*stack).ip(&ip).port(port).socket(tcp).connect().await?;
     Ok(tcp_channel)
 }
 
+async fn setup_udp<'a>(
+    host: &CStr,
+    ip: IpAddress,
+    port: u16,
+    stack: &Stack<'static>,
+    channels: &'a mut UdpChannels,
+) -> Result<UdpDtlsSocket<'a>> {
+    let mut socket = UdpSocket::new(
+        *stack,
+        &mut channels.rx_meta,
+        &mut channels.rx,
+        &mut channels.tx_meta,
+        &mut channels.tx,
+    );
+    socket.bind(0u16).map_err(|_| anyhow!("unable to bind to ephemeral port for udp"))?;
+    let peer = EmbassyPeerSocket::new(socket, IpEndpoint { addr: ip, port });
+    let rng =
+        Trng::try_new().map_err(|err| anyhow!("unable to initialize RNG for DTLS: {err:?}"))?;
+    let udp_channel = UdpDtlsSocket::new_client(Box::new(peer), rng, DTLS_ROOT_CA, host)?;
+    Ok(udp_channel)
+}
+
 /// get ip and port
 async fn find_ip_and_port(
-    url: Url,
+    url: &Url,
     stack: &Stack<'static>,
 ) -> Result<(embassy_net::IpAddress, u16)> {
     let host = url.host_str().ok_or_else(|| anyhow!("no host specified"))?;

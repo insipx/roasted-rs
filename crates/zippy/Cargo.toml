@@ -57,6 +57,9 @@ hex = { workspace = true, features = ["alloc"], optional = true }
 log = { version = "0.4", default-features = false }
 nb = "1"
 postcard.workspace = true
+roasted-data-streams = { workspace = true, default-features = false, features = [
+  "embassy-net",
+] }
 roasted-types = { workspace = true, default-features = false, features = [
   "zippy",
 ] }

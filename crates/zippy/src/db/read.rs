@@ -36,6 +36,21 @@ impl<V: Clone> DbReader<V> {
         let read = self.read().await;
         read.get(&super::Keys::WIPW).cloned()
     }
+
+    pub async fn udp_port(&self) -> Option<V> {
+        let read = self.read().await;
+        read.get(&super::Keys::UDP).cloned()
+    }
+
+    pub async fn tcp_port(&self) -> Option<V> {
+        let read = self.read().await;
+        read.get(&super::Keys::TCP).cloned()
+    }
+
+    pub async fn host(&self) -> Option<V> {
+        let read = self.read().await;
+        read.get(&super::Keys::HOST).cloned()
+    }
 }
 
 /// A view into the db.

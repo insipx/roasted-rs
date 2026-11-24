@@ -36,3 +36,11 @@ pub struct UdpChannel<'bufs> {
     ip: IpAddress,
     socket: UdpSocket<'bufs>,
 }
+
+#[bon::bon]
+impl<'bufs> UdpChannel<'bufs> {
+    #[builder(start_fn = builder, finish_fn = connect)]
+    pub async fn connect(ip: &IpAddress, stack: Stack<'static>) -> Result<Self> {
+        todo!()
+    }
+}

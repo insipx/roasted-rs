@@ -212,6 +212,12 @@ impl Keys {
     pub const WIPW: DbKey = DbKey::new(*b"WIPW");
     /// URL of the roasted-rs ws daemon
     pub const DURL: DbKey = DbKey::new(*b"DURL");
+    /// Host of the roasted-rs daemon
+    pub const HOST: DbKey = DbKey::new(*b"HOST");
+    /// UDP Port of roasted-rs daemon
+    pub const UDP: DbKey = DbKey::new(*b"_UDP");
+    /// Tcp Port of roasted-rs daemon
+    pub const TCP: DbKey = DbKey::new(*b"_TCP");
     /// Misc
     pub const MISC: DbKey = DbKey::new(*b"MISC");
 }
