@@ -9,7 +9,7 @@ use color_eyre::eyre::{Result, WrapErr};
 use futures::Stream;
 use getrandom::SysRng;
 use pin_project_lite::pin_project;
-use roasted_data_streams::udp::{AudioPacketHeader, TokioPeerSocket, UdpDtlsSocket};
+use roasted_data_streams::udp::{AudioPacketHeader, UdpDtlsSocket, UdpSocketPeer};
 use tokio::net::UdpSocket;
 
 pin_project! {
@@ -31,7 +31,7 @@ impl AudioListener {
             .wrap_err_with(|| format!("audio listener failed binding to {address}"))?;
 
         let peer = socket.peek_sender().await.wrap_err("no audio peer")?;
-        let transport = TokioPeerSocket::new(socket, peer);
+        let transport = UdpSocketPeer::new(socket, peer);
         let inner = UdpDtlsSocket::new_server(
             Box::new(transport),
             SysRng,

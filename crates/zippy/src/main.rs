@@ -1,5 +1,6 @@
 #![no_std]
 #![no_main]
+#![feature(cstr_display)]
 
 mod actions;
 mod configuration;
@@ -33,7 +34,8 @@ esp_bootloader_esp_idf::esp_app_desc!();
 // NOTE: DHCP and DNS need one socket slot if enabled. This is why we're provisioning space for 3
 // sockets here: one for DHCP, one for DNS, and one for your code (e.g. TCP). If you use more
 // sockets you must increase this. If you don't enable DHCP or DNS you can decrease it. https://docs.rs/embassy-net/latest/embassy_net/struct.Stack.html#example
-static NET_RESOURCES: StaticCell<embassy_net::StackResources<3>> = StaticCell::new();
+// DHCP, DNS, the TCP control channel, and the UDP audio channel each need a slot.
+static NET_RESOURCES: StaticCell<embassy_net::StackResources<4>> = StaticCell::new();
 
 #[esp_rtos::main]
 async fn main(spawner: Spawner) -> () {

@@ -32,7 +32,7 @@ pub mod embedded_net;
 #[cfg(feature = "std")]
 mod tokio;
 #[cfg(feature = "std")]
-pub use self::tokio::TokioPeerSocket;
+pub use self::tokio::UdpSocketPeer;
 
 mod mbedtls_callbacks;
 #[cfg(feature = "std")]

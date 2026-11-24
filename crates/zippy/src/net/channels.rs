@@ -1,4 +1,6 @@
-use anyhow::{Result, anyhow, bail};
+use alloc::format;
+
+use anyhow::{Context, Result, anyhow, bail};
 use embassy_net::{
     IpAddress, IpEndpoint, Stack, dns::DnsQueryType, tcp::TcpSocket, udp::UdpSocket,
 };
@@ -21,7 +23,10 @@ impl<'bufs> TcpChannel<'bufs> {
         stack: Stack<'static>,
     ) -> Result<Self> {
         let addr = IpEndpoint { addr: *ip, port };
-        socket.connect(addr).await?;
+        socket
+            .connect(addr)
+            .await
+            .with_context(|| format!("failed to connect to tcp://{ip}:{port}"))?;
         Ok(Self { stack, ip: *ip, port, socket })
     }
 

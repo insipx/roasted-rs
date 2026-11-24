@@ -1,10 +1,10 @@
 //! Background runner task for embassy radio wifi interface.
 //! Also handles TCP and UDP socket connections for Zippy
 
-use alloc::{boxed::Box, ffi::CString, string::String};
+use alloc::{boxed::Box, ffi::CString, format, string::String};
 use core::{ffi::CStr, time::Duration};
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use backon::{ExponentialBuilder, Retryable};
 use embassy_futures::select;
 use embassy_net::{
@@ -71,15 +71,20 @@ async fn run(args: Args<'_>) -> Result<()> {
     let mut udp_session =
         setup_udp(host.as_c_str(), ip, udp_port, stack, &mut udp_channels).await?;
     let mut session = setup_tcp(ip, port, stack, &mut rx, &mut tx).await?;
-    tracing::info!(addr = ?session.remote_endpoint(), "tcp connected");
     loop {
         match subscriber.next_message_pure().await {
             Events::SetDaemonUrl => {
-                let url = db.daemon_url().await.ok_or(anyhow!("no daemon url set"))?;
-                let (ip, port) = find_ip_and_port(&url.parse()?, stack).await?;
+                let url: Url =
+                    db.daemon_url().await.ok_or(anyhow!("no daemon url set"))?.parse()?;
+                let (ip, port) = find_ip_and_port(&url, stack).await?;
+                let host = CString::new(url.host_str().ok_or(anyhow!("no host"))?)
+                    .expect("CString failed");
                 // TODO: should do a ordered shutdown of socket close etc.
                 drop(session);
+                drop(udp_session);
                 session = setup_tcp(ip, port, &stack, &mut rx, &mut tx).await?;
+                udp_session =
+                    setup_udp(host.as_c_str(), ip, udp_port, stack, &mut udp_channels).await?;
             }
             _ => continue,
         };
@@ -119,6 +124,7 @@ async fn setup_tcp<'a>(
     let tcp = TcpSocket::new(*stack, rx, tx);
     let tcp_channel =
         TcpChannel::builder().stack(*stack).ip(&ip).port(port).socket(tcp).connect().await?;
+    tracing::info!(addr = ?tcp_channel.remote_endpoint(), "tcp connected");
     Ok(tcp_channel)
 }
 
@@ -140,7 +146,9 @@ async fn setup_udp<'a>(
     let peer = EmbassyPeerSocket::new(socket, IpEndpoint { addr: ip, port });
     let rng =
         Trng::try_new().map_err(|err| anyhow!("unable to initialize RNG for DTLS: {err:?}"))?;
-    let udp_channel = UdpDtlsSocket::new_client(Box::new(peer), rng, DTLS_ROOT_CA, host)?;
+    let udp_channel = UdpDtlsSocket::new_client(Box::new(peer), rng, DTLS_ROOT_CA, host)
+        .with_context(|| format!("failed creating new DTLS Socket"))?;
+    tracing::info!(host = &*host.to_string_lossy(), port, "UDP connected");
     Ok(udp_channel)
 }
 
