@@ -21,6 +21,16 @@ impl Stream for UdpDtlsSocket<'_> {
         };
 
         match result {
+            #[cfg(feature = "std")]
+            mbedtls_rs_sys::MBEDTLS_ERR_SSL_HELLO_VERIFY_REQUIRED if this.server.is_some() => {
+                let code = this.reset_server_session();
+                if code != 0 {
+                    return Poll::Ready(Some(Err(DtlsReadError::Tls { code })));
+                }
+                // Poll again to consume a queued ClientHello or register UDP receive readiness.
+                cx.waker().wake_by_ref();
+                Poll::Pending
+            }
             MBEDTLS_ERR_SSL_WANT_READ | MBEDTLS_ERR_SSL_WANT_WRITE => {
                 this.poll_timer(cx);
                 Poll::Pending

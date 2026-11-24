@@ -3361,6 +3361,7 @@ dependencies = [
  "futures",
  "lexopt",
  "pin-project-lite",
+ "roasted-data-streams",
  "roasted-db",
  "roasted-types",
  "serde_json",

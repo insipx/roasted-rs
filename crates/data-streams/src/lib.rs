@@ -3,7 +3,7 @@
 
 mod cobs_stream;
 mod error;
-mod udp;
+pub mod udp;
 pub mod zippy;
 
 extern crate alloc;

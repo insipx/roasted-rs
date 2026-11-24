@@ -36,3 +36,10 @@ pub enum DtlsSendError {
 #[derive(Debug, thiserror::Error)]
 #[error("failed to fill the DTLS random byte buffer")]
 pub struct DtlsRngError;
+
+#[derive(Debug, Error)]
+#[error("Mbed TLS {operation} failed with status {code}")]
+pub struct DtlsSetupError {
+    pub operation: &'static str,
+    pub code: c_int,
+}
