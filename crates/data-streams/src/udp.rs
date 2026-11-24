@@ -2,20 +2,24 @@
 use alloc::{boxed::Box, vec::Vec};
 use core::{
     cell::RefCell,
-    ffi::{c_int, c_void},
+    ffi::{CStr, c_int, c_void},
     mem::MaybeUninit,
     pin::Pin,
+    ptr,
     task::{Context, Poll, Waker},
 };
 
 use futures_core::Stream;
 use mbedtls_rs_sys::{
-    MBEDTLS_ERR_SSL_INTERNAL_ERROR, MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY, MBEDTLS_ERR_SSL_WANT_READ,
-    MBEDTLS_ERR_SSL_WANT_WRITE, MBEDTLS_SSL_IN_CONTENT_LEN, MBEDTLS_SSL_IS_CLIENT,
-    MBEDTLS_SSL_PRESET_DEFAULT, MBEDTLS_SSL_TRANSPORT_DATAGRAM, mbedtls_ssl_conf_rng,
-    mbedtls_ssl_config, mbedtls_ssl_config_defaults, mbedtls_ssl_config_free,
-    mbedtls_ssl_config_init, mbedtls_ssl_context, mbedtls_ssl_free, mbedtls_ssl_init,
-    mbedtls_ssl_read, mbedtls_ssl_set_bio, mbedtls_ssl_setup,
+    MBEDTLS_ERR_SSL_BAD_INPUT_DATA, MBEDTLS_ERR_SSL_INTERNAL_ERROR,
+    MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY, MBEDTLS_ERR_SSL_WANT_READ, MBEDTLS_ERR_SSL_WANT_WRITE,
+    MBEDTLS_SSL_IN_CONTENT_LEN, MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_PRESET_DEFAULT,
+    MBEDTLS_SSL_TRANSPORT_DATAGRAM, MBEDTLS_SSL_VERIFY_REQUIRED, mbedtls_ssl_conf_authmode,
+    mbedtls_ssl_conf_ca_chain, mbedtls_ssl_conf_rng, mbedtls_ssl_config,
+    mbedtls_ssl_config_defaults, mbedtls_ssl_config_free, mbedtls_ssl_config_init,
+    mbedtls_ssl_context, mbedtls_ssl_free, mbedtls_ssl_init, mbedtls_ssl_read, mbedtls_ssl_set_bio,
+    mbedtls_ssl_set_hostname, mbedtls_ssl_setup, mbedtls_x509_crt, mbedtls_x509_crt_free,
+    mbedtls_x509_crt_init, mbedtls_x509_crt_parse_der,
 };
 use rand_core::TryCryptoRng;
 use serde::{Deserialize, Serialize};
@@ -71,6 +75,7 @@ pub struct UdpDtlsSocket<'net> {
     ssl_config: Box<mbedtls_ssl_config>,
     ssl_context: Box<mbedtls_ssl_context>,
     rng_context: Box<RefCell<Box<dyn DtlsRng + 'net>>>,
+    root_ca: Option<Box<mbedtls_x509_crt>>,
     #[cfg(feature = "std")]
     server: Option<Box<server::ServerState>>,
     // the constant size of the array here is way large for embedded (16kb) and should make it
@@ -85,6 +90,51 @@ impl<'net> UdpDtlsSocket<'net> {
     pub fn new(socket: Box<dyn UdpSocket + 'net>, rng: impl TryCryptoRng + 'net) -> Self {
         Self::new_with_endpoint(socket, rng, MBEDTLS_SSL_IS_CLIENT as c_int, |_| Ok(()))
             .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    /// Create a DTLS client that verifies the server against a DER-encoded root CA
+    /// and the expected DNS name.
+    pub fn new_client(
+        socket: Box<dyn UdpSocket + 'net>,
+        rng: impl TryCryptoRng + 'net,
+        root_ca_der: &[u8],
+        server_name: &CStr,
+    ) -> Result<Self, DtlsSetupError> {
+        if server_name.to_bytes().is_empty() {
+            return Err(DtlsSetupError {
+                operation: "set expected server name",
+                code: MBEDTLS_ERR_SSL_BAD_INPUT_DATA,
+            });
+        }
+
+        let mut session =
+            Self::new_with_endpoint(socket, rng, MBEDTLS_SSL_IS_CLIENT as c_int, |session| {
+                let mut root_ca = Box::<mbedtls_x509_crt>::new_uninit();
+                let root_ca = unsafe {
+                    mbedtls_x509_crt_init(root_ca.as_mut_ptr());
+                    root_ca.assume_init()
+                };
+                let root_ca = session.root_ca.insert(root_ca).as_mut();
+                check_setup("parse root CA", unsafe {
+                    mbedtls_x509_crt_parse_der(root_ca, root_ca_der.as_ptr(), root_ca_der.len())
+                })?;
+                unsafe {
+                    mbedtls_ssl_conf_ca_chain(
+                        session.ssl_config.as_mut(),
+                        root_ca,
+                        ptr::null_mut(),
+                    );
+                    mbedtls_ssl_conf_authmode(
+                        session.ssl_config.as_mut(),
+                        MBEDTLS_SSL_VERIFY_REQUIRED as c_int,
+                    );
+                }
+                Ok(())
+            })?;
+        check_setup("set expected server name", unsafe {
+            mbedtls_ssl_set_hostname(session.ssl_context.as_mut(), server_name.as_ptr())
+        })?;
+        Ok(session)
     }
 
     fn new_with_endpoint(
@@ -115,6 +165,7 @@ impl<'net> UdpDtlsSocket<'net> {
             ssl_config,
             ssl_context,
             rng_context,
+            root_ca: None,
             #[cfg(feature = "std")]
             server: None,
             recv_buff: [0u8; MBEDTLS_SSL_IN_CONTENT_LEN as usize],
@@ -176,6 +227,9 @@ impl Drop for UdpDtlsSocket<'_> {
         unsafe {
             mbedtls_ssl_free(self.ssl_context.as_mut());
             mbedtls_ssl_config_free(self.ssl_config.as_mut());
+            if let Some(root_ca) = &mut self.root_ca {
+                mbedtls_x509_crt_free(root_ca.as_mut());
+            }
         }
     }
 }
