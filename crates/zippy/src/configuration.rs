@@ -16,4 +16,4 @@ pub mod db {
     pub const DB_START: u32 = 8;
 }
 
-pub const DTLS_ROOT_CA: &[u8] = include_bytes!("certs/volos-root-ca.der");
+pub const DTLS_ROOT_CA: &[u8] = include_bytes!("../certs/volos-root-ca.der");
