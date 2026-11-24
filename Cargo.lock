@@ -3359,6 +3359,7 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "futures",
+ "getrandom 0.4.3",
  "lexopt",
  "pin-project-lite",
  "roasted-data-streams",

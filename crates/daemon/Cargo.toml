@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 color-eyre.workspace = true
 futures.workspace = true
+getrandom = { version = "0.4", features = ["sys_rng"] }
 lexopt.workspace = true
 pin-project-lite.workspace = true
 roasted-data-streams.workspace = true

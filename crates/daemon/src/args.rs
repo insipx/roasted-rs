@@ -10,7 +10,7 @@ pub struct Args {
     /// port to bind webserver on, default 443
     pub tcp_port: u16,
     /// port to bind webserver on to accept audio from esp32.
-    /// Default 5005
+    /// Default 54444
     pub udp_port: u16,
     /// Url. when given will send application logs to Loki.
     pub loki: Option<Url>,
@@ -22,7 +22,7 @@ pub fn parse_args() -> Result<Args> {
 
     let mut gaggimate = None;
     let mut tcp_port = 80;
-    let mut udp_port = 5005;
+    let mut udp_port = 54444;
     let mut loki = None;
     let mut parser = lexopt::Parser::from_env();
     let err = |name| format!("failed to parse argument `{name}`");

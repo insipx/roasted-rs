@@ -27,6 +27,8 @@ use crate::error::{DtlsReadError, DtlsRngError};
 pub mod embedded_net;
 #[cfg(feature = "std")]
 mod tokio;
+#[cfg(feature = "std")]
+pub use self::tokio::TokioPeerSocket;
 
 mod mbedtls_callbacks;
 #[cfg(feature = "std")]
