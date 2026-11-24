@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 color-eyre.workspace = true
+data-streams.workspace = true
 futures.workspace = true
 lexopt.workspace = true
 pin-project-lite.workspace = true

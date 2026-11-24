@@ -75,6 +75,14 @@ pub struct UdpDtlsSocket<'net> {
 impl<'net> UdpDtlsSocket<'net> {
     /// On Tokio, poll this socket in a runtime with time enabled.
     pub fn new(socket: Box<dyn UdpSocket + 'net>, rng: impl TryCryptoRng + 'net) -> Self {
+        Self::new_with_endpoint(socket, rng, MBEDTLS_SSL_IS_CLIENT as c_int)
+    }
+
+    fn new_with_endpoint(
+        socket: Box<dyn UdpSocket + 'net>,
+        rng: impl TryCryptoRng + 'net,
+        endpoint: c_int,
+    ) -> Self {
         let mut ssl_config = Box::new(MaybeUninit::<mbedtls_ssl_config>::uninit());
         let mut ssl_context = Box::new(MaybeUninit::<mbedtls_ssl_context>::uninit());
         let rng_context: Box<Rng<'net>> = Box::new(RefCell::new(Box::new(rng)));
@@ -91,7 +99,7 @@ impl<'net> UdpDtlsSocket<'net> {
         unsafe {
             mbedtls_ssl_config_defaults(
                 ssl_config.as_mut(),
-                MBEDTLS_SSL_IS_CLIENT as i32,
+                endpoint,
                 MBEDTLS_SSL_TRANSPORT_DATAGRAM as i32,
                 MBEDTLS_SSL_PRESET_DEFAULT as i32,
             );
