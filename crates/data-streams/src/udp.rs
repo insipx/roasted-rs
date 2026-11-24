@@ -12,13 +12,14 @@ use futures_core::Stream;
 use mbedtls_rs_sys::{
     MBEDTLS_ERR_SSL_INTERNAL_ERROR, MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY, MBEDTLS_ERR_SSL_WANT_READ,
     MBEDTLS_ERR_SSL_WANT_WRITE, MBEDTLS_SSL_IN_CONTENT_LEN, MBEDTLS_SSL_IS_CLIENT,
-    MBEDTLS_SSL_PRESET_DEFAULT, MBEDTLS_SSL_TRANSPORT_DATAGRAM, mbedtls_ssl_config,
-    mbedtls_ssl_config_defaults, mbedtls_ssl_config_init, mbedtls_ssl_context, mbedtls_ssl_init,
-    mbedtls_ssl_read, mbedtls_ssl_set_bio, mbedtls_ssl_setup,
+    MBEDTLS_SSL_PRESET_DEFAULT, MBEDTLS_SSL_TRANSPORT_DATAGRAM, mbedtls_ssl_conf_rng,
+    mbedtls_ssl_config, mbedtls_ssl_config_defaults, mbedtls_ssl_config_init, mbedtls_ssl_context,
+    mbedtls_ssl_init, mbedtls_ssl_read, mbedtls_ssl_set_bio, mbedtls_ssl_setup,
 };
+use rand_core::TryCryptoRng;
 use serde::{Deserialize, Serialize};
 
-use crate::error::DtlsReadError;
+use crate::error::{DtlsReadError, DtlsRngError};
 
 #[cfg(feature = "embassy-net")]
 pub mod embedded_net;
@@ -45,6 +46,16 @@ pub trait UdpSocket {
     fn poll_send(&self, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, core::io::Error>>;
 }
 
+pub trait DtlsRng {
+    fn fill(&mut self, out: &mut [u8]) -> Result<(), DtlsRngError>;
+}
+
+impl<R: TryCryptoRng> DtlsRng for R {
+    fn fill(&mut self, out: &mut [u8]) -> Result<(), DtlsRngError> {
+        self.try_fill_bytes(out).map_err(|_| DtlsRngError)
+    }
+}
+
 /// A UDP Socket that uses DTLS to communicate
 /// _NOTE:_ MUST be owned/used by one task. If split into stream and sink parts
 /// wakes will may be overwritten/missed.
@@ -53,7 +64,8 @@ pub struct UdpDtlsSocket<'net> {
     context: Box<RefCell<DtlsWakerContext<'net>>>,
     ssl_config: Box<mbedtls_ssl_config>,
     ssl_context: Box<mbedtls_ssl_context>,
-    // the constant size of the array here is way large for emberedded (16kb) and we should make it
+    rng_context: Box<RefCell<Box<dyn DtlsRng + 'net>>>,
+    // the constant size of the array here is way large for embedded (16kb) and should make it
     // smaller
     recv_buff: [u8; MBEDTLS_SSL_IN_CONTENT_LEN as usize],
     /// holds apending audio packet to be sent
@@ -62,9 +74,10 @@ pub struct UdpDtlsSocket<'net> {
 
 impl<'net> UdpDtlsSocket<'net> {
     /// On Tokio, poll this socket in a runtime with time enabled.
-    pub fn new(socket: Box<dyn UdpSocket + 'net>) -> Self {
+    pub fn new(socket: Box<dyn UdpSocket + 'net>, rng: impl TryCryptoRng + 'net) -> Self {
         let mut ssl_config = Box::new(MaybeUninit::<mbedtls_ssl_config>::uninit());
         let mut ssl_context = Box::new(MaybeUninit::<mbedtls_ssl_context>::uninit());
+        let rng_context: Box<Rng<'net>> = Box::new(RefCell::new(Box::new(rng)));
         let mut ssl_config = unsafe {
             mbedtls_ssl_config_init(ssl_config.as_mut_ptr());
             ssl_config.assume_init()
@@ -82,6 +95,12 @@ impl<'net> UdpDtlsSocket<'net> {
                 MBEDTLS_SSL_TRANSPORT_DATAGRAM as i32,
                 MBEDTLS_SSL_PRESET_DEFAULT as i32,
             );
+        }
+
+        // need to setup rng provider before ssl setup
+        let rng_ptr = core::ptr::from_ref(rng_context.as_ref()).cast_mut().cast();
+        unsafe {
+            mbedtls_ssl_conf_rng(&mut *ssl_config, Some(rng_callback), rng_ptr);
         }
 
         let result = unsafe { mbedtls_ssl_setup(&mut *ssl_context, &*ssl_config) };
@@ -116,6 +135,7 @@ impl<'net> UdpDtlsSocket<'net> {
             context: waker_context,
             ssl_config,
             ssl_context,
+            rng_context,
             recv_buff: [0u8; MBEDTLS_SSL_IN_CONTENT_LEN as usize],
             pending_send: None,
         }
@@ -148,3 +168,5 @@ pub struct AudioPacketRef<'a> {
 }
 
 pub type AudioPacket = AudioPacketRef<'static>;
+
+pub type Rng<'net> = RefCell<Box<dyn DtlsRng + 'net>>;

@@ -3387,6 +3387,7 @@ dependencies = [
  "mbedtls-rs-sys",
  "pin-project-lite",
  "postcard",
+ "rand_core 0.10.1",
  "roasted-types",
  "serde",
  "thiserror 2.0.21",

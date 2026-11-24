@@ -1,5 +1,7 @@
 //! Register callback logic with mbedtls_ssl
 
+use mbedtls_rs_sys::MBEDTLS_ERR_ENTROPY_SOURCE_FAILED;
+
 use super::*;
 
 pub(super) unsafe extern "C" fn recv_callback(
@@ -49,5 +51,22 @@ pub(super) unsafe extern "C" fn send_callback(
         Poll::Ready(Ok(count)) if count == length => sent,
         Poll::Pending => MBEDTLS_ERR_SSL_WANT_WRITE,
         Poll::Ready(_) => MBEDTLS_ERR_SSL_INTERNAL_ERROR, // cannot retry partial send with dtls
+    }
+}
+
+pub(super) unsafe extern "C" fn rng_callback(
+    context: *mut c_void,
+    output: *mut u8,
+    len: usize,
+) -> c_int {
+    if len == 0 {
+        return 0;
+    }
+    let state = unsafe { &*context.cast::<Rng<'_>>() };
+    unsafe { output.write_bytes(0, len) };
+    let out = unsafe { core::slice::from_raw_parts_mut(output, len) };
+    match state.borrow_mut().fill(out) {
+        Ok(()) => 0,
+        Err(_) => MBEDTLS_ERR_ENTROPY_SOURCE_FAILED,
     }
 }

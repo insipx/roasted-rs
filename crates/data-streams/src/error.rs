@@ -32,3 +32,7 @@ pub enum DtlsSendError {
     #[error("Mbed TLS accepted {written} of {expected} bytes in a DTLS record")]
     ShortWrite { written: usize, expected: usize },
 }
+
+#[derive(Debug, thiserror::Error)]
+#[error("failed to fill the DTLS random byte buffer")]
+pub struct DtlsRngError;

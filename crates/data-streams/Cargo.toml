@@ -20,6 +20,7 @@ futures-util = { workspace = true, features = ["sink"] }
 mbedtls-rs-sys = { version = "0.3" }
 pin-project-lite.workspace = true
 postcard.workspace = true
+rand_core = "0.10"
 roasted-types = { workspace = true, features = ["zippy"] }
 serde.workspace = true
 thiserror.workspace = true

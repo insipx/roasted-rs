@@ -60,6 +60,7 @@ impl Sink<AudioPacket> for UdpDtlsSocket<'_> {
     }
 
     fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        core::task::ready!(self.as_mut().poll_flush(cx))?;
         let _ = self.as_mut().poll_flush(cx)?;
         let this = self.as_mut().get_mut();
         match &mut this.context.borrow_mut().waker {

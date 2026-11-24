@@ -47,7 +47,6 @@ async fn run(driver: RoastedDriver) -> Result<()> {
         // give judgement
         // conversation sequence
         // end
-        //
     }
     Ok(())
 }
