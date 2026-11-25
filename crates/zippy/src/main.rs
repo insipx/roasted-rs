@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-#![feature(cstr_display)]
 
 mod actions;
 mod audio;
@@ -9,24 +8,34 @@ mod db;
 mod error;
 mod eventbus;
 mod net;
+mod psa;
 mod serial;
 
 use anyhow::Result;
 use crypto_common::rand_core::Rng;
 use embassy_executor::Spawner;
 use embassy_net::Config;
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
+use embassy_sync::{
+    blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel, zerocopy_channel,
+};
 use esp_backtrace as _;
 use esp_hal::{
     clock::CpuClock,
-    peripherals::{FROM_CPU_INTR0, HMAC, TIMG0, WIFI},
+    peripherals::{
+        DMA_CH0, FROM_CPU_INTR0, GPIO10, GPIO11, GPIO12, GPIO13, GPIO14, GPIO15, HMAC, I2C0, I2S0,
+        TIMG0, WIFI,
+    },
     rng::{Trng, TrngSource},
     timer::timg::TimerGroup,
 };
 use esp_storage::FlashStorage;
 use static_cell::StaticCell;
 
-use crate::db::{Database, EncryptionKey};
+use crate::{
+    audio::{AudioChunk, MicrophoneGpio},
+    db::{Database, EncryptionKey},
+    eventbus::INGEST,
+};
 
 extern crate alloc;
 
@@ -68,6 +77,15 @@ async fn main(spawner: Spawner) -> () {
         .db(db)
         .hmac(peripherals.HMAC)
         .wifi(peripherals.WIFI)
+        .i2s(peripherals.I2S0)
+        .i2c(peripherals.I2C0)
+        .gpio10(peripherals.GPIO10)
+        .gpio11(peripherals.GPIO11)
+        .gpio12(peripherals.GPIO12)
+        .gpio13(peripherals.GPIO13)
+        .gpio14(peripherals.GPIO14)
+        .gpio15(peripherals.GPIO15)
+        .dma(peripherals.DMA_CH0)
         .call()
         .await
     {
@@ -85,9 +103,19 @@ async fn run(
     db: FlashStorage<'static>,
     hmac: HMAC<'static>,
     wifi: WIFI<'static>,
+    i2s: I2S0<'static>,
+    i2c: I2C0<'static>,
+    gpio10: GPIO10<'static>,
+    gpio11: GPIO11<'static>,
+    gpio12: GPIO12<'static>,
+    gpio13: GPIO13<'static>,
+    gpio14: GPIO14<'static>,
+    gpio15: GPIO15<'static>,
+    dma: DMA_CH0<'static>,
 ) -> Result<()> {
     let timg0 = TimerGroup::new(timer);
     esp_rtos::start(timg0.timer0, cpu);
+    psa::init()?;
 
     // init serial connection
     tracing::info!("spawning tasks");
@@ -125,6 +153,21 @@ async fn run(
         seed,
     );
     spawner.spawn(net::bg_runner(runner)?);
-    spawner.spawn(net::net(stack, read_db)?);
+
+    static INGEST_BUF: StaticCell<[AudioChunk; 10]> = StaticCell::new();
+    let buf = INGEST_BUF.init([AudioChunk::new(0); 10]);
+    let ingest = INGEST.init(zerocopy_channel::Channel::new(buf));
+    let (tx, rx) = ingest.split();
+    // setup audio and network pairs
+    let audio_comm = spawner.spawn(net::net(stack, read_db, rx)?);
+    let mic_gpio = MicrophoneGpio::builder()
+        .gpio10(gpio10)
+        .gpio11(gpio11)
+        .gpio12(gpio12)
+        .gpio13(gpio13)
+        .gpio14(gpio14)
+        .gpio15(gpio15)
+        .build();
+    spawner.spawn(audio::ingest(i2s, i2c, mic_gpio, dma, tx)?);
     Ok(())
 }

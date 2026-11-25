@@ -1,8 +1,12 @@
 use anyhow::{Result, anyhow};
 use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex,
+    blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex},
     pubsub::{PubSubChannel, publisher::Publisher, subscriber::Subscriber},
+    zerocopy_channel,
 };
+use static_cell::StaticCell;
+
+use crate::audio::{AudioChunk, IngestReceiver};
 
 /// Global events which some tasks may want to react to
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -27,3 +31,7 @@ pub fn publisher() -> Result<EventPublisher> {
 pub fn subscriber() -> Result<EventSubscriber> {
     EVENTS.subscriber().map_err(|_| anyhow!("max subscribers reached in eventbus"))
 }
+
+/// Audio Ingest ZeroCopy Channel
+pub static INGEST: StaticCell<zerocopy_channel::Channel<'_, NoopRawMutex, AudioChunk>> =
+    StaticCell::new();

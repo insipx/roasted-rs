@@ -78,9 +78,7 @@ pub struct UdpDtlsSocket<'net> {
     root_ca: Option<Box<mbedtls_x509_crt>>,
     #[cfg(feature = "std")]
     server: Option<Box<server::ServerState>>,
-    // the constant size of the array here is way large for embedded (16kb) and should make it
-    // smaller
-    recv_buff: [u8; MBEDTLS_SSL_IN_CONTENT_LEN as usize],
+    recv_buff: [u8; 2048],
     /// holds apending audio packet to be sent
     pending_send: Option<Vec<u8>>,
 }
@@ -168,7 +166,7 @@ impl<'net> UdpDtlsSocket<'net> {
             root_ca: None,
             #[cfg(feature = "std")]
             server: None,
-            recv_buff: [0u8; MBEDTLS_SSL_IN_CONTENT_LEN as usize],
+            recv_buff: [0u8; 2048],
             pending_send: None,
         };
 

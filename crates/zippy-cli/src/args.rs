@@ -29,20 +29,20 @@ enum Command {
     ListPorts,
     /// Set the URL for the roasted-rs daemon
     SetDaemonUrl,
+    /// Listen for audio
+    Listen,
 }
 
 impl FromStr for Command {
     type Err = Report;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "SayHello" | "sayhello" | "hello" | "say-hello" | "say_hello" => Ok(Self::SayHello),
-            "InitWifi" | "init_wifi" | "init-wifi" | "initwifi" | "wifi" => Ok(Self::InitWifi),
-            "SetDaemonurl" | "set_daemon_url" | "set-daemon-url" | "setdaemonurl" => {
-                Ok(Self::SetDaemonUrl)
-            }
-            "ListPorts" | "list_ports" | "list-ports" | "listports" | "ports" => {
-                Ok(Self::ListPorts)
-            }
+        let s = s.to_ascii_lowercase();
+        match s.as_str() {
+            "sayhello" | "hello" | "say-hello" | "say_hello" => Ok(Self::SayHello),
+            "init_wifi" | "init-wifi" | "initwifi" | "wifi" => Ok(Self::InitWifi),
+            "set_daemon_url" | "set-daemon-url" | "setdaemonurl" => Ok(Self::SetDaemonUrl),
+            "list_ports" | "list-ports" | "listports" | "ports" => Ok(Self::ListPorts),
+            "listen" => Ok(Self::Listen),
             _ => bail!("unknown command: `{}` for `CliAction`", s),
         }
     }
@@ -114,6 +114,7 @@ pub fn parse_args() -> Result<Args> {
                     Command::InitWifi => Some(parse_wifi(&mut parser)?),
                     Command::ListPorts => Some(CliAction::ListPorts),
                     Command::SetDaemonUrl => Some(parse_durl(&mut parser)?),
+                    Command::Listen => Some(CliAction::Listen),
                 };
                 break;
             }

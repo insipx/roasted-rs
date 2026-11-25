@@ -54,10 +54,4 @@ impl UdpChannels {
             tx: [0u8; 4096],
         }
     }
-
-    pub(super) fn into_tuple(
-        self,
-    ) -> ([PacketMetadata; 4], [PacketMetadata; 4], [u8; 4096], [u8; 4096]) {
-        (self.rx_meta, self.tx_meta, self.rx, self.tx)
-    }
 }

@@ -5,8 +5,8 @@ use alloc::{boxed::Box, ffi::CString, format, string::String};
 use core::{ffi::CStr, time::Duration};
 
 use anyhow::{Context, Result, anyhow, bail};
-use backon::{ExponentialBuilder, Retryable};
-use embassy_futures::select;
+use backon::{ExponentialBuilder, RetryableWithContext};
+use embassy_futures::select::{Either, select};
 use embassy_net::{
     IpAddress, IpEndpoint, Stack,
     dns::DnsQueryType,
@@ -14,10 +14,14 @@ use embassy_net::{
     udp::{PacketMetadata, UdpSocket},
 };
 use esp_hal::rng::Trng;
-use roasted_data_streams::udp::{UdpDtlsSocket, embedded_net::EmbassyPeerSocket};
+use futures_util::sink::SinkExt;
+use roasted_data_streams::udp::{
+    AudioPacketHeader, AudioPacketRef, UdpDtlsSocket, embedded_net::EmbassyPeerSocket,
+};
 use url::Url;
 
 use crate::{
+    audio::IngestReceiver,
     configuration::{DEFAULT_DAEMON_UDP_PORT, DTLS_ROOT_CA},
     db::{self, DbReader},
     eventbus::Events,
@@ -33,32 +37,42 @@ pub async fn bg_runner(mut runner: embassy_net::Runner<esp_radio::wifi::Interfac
     runner.run().await;
 }
 
-#[derive(Copy, Clone)]
 struct Args<'a> {
     stack: &'a Stack<'static>,
     db: &'a DbReader<String>,
+    audio_ingest: &'a mut IngestReceiver<'static>,
+    attempts: usize,
 }
 
 #[embassy_executor::task]
-pub async fn net(stack: Stack<'static>, db: DbReader<String>) {
+pub async fn net(
+    stack: Stack<'static>,
+    db: DbReader<String>,
+    mut audio_ingest: IngestReceiver<'static>,
+) {
     tracing::info!("starting TCP/UDP channels");
-    let args = Args { stack: &stack, db: &db };
+    let args = Args { stack: &stack, db: &db, audio_ingest: &mut audio_ingest, attempts: 0 };
 
-    let task = (|| async { run(args).await })
-        .retry(ExponentialBuilder::default().without_max_times())
-        .sleep(backon::EmbassySleeper)
-        .notify(|err: &anyhow::Error, dur: Duration| {
-            tracing::info!("encountered `{err}` retrying after {dur:?}");
-        })
-        .await;
+    let (_, task) = (async |mut args| {
+        let result = run(&mut args).await;
+        args.attempts += 1;
+        (args, result)
+    })
+    .retry(ExponentialBuilder::default().without_max_times())
+    .sleep(backon::EmbassySleeper)
+    .context(args)
+    .notify(|err: &anyhow::Error, dur: Duration| {
+        tracing::info!("encountered `{err}` retrying after {dur:?}");
+    })
+    .await;
     if let Err(e) = task {
         panic!("unrecoverable error occured in net task {e}");
     }
 }
 
-async fn run(args: Args<'_>) -> Result<()> {
+async fn run(args: &mut Args<'_>) -> Result<()> {
     let mut subscriber = crate::eventbus::subscriber()?;
-    let Args { stack, db } = args;
+    let Args { stack, db, audio_ingest, .. } = args;
     let (mut rx, mut tx) = ([0u8; 128], [0u8; 128]);
     let mut udp_channels = UdpChannels::new();
     stack.wait_config_up().await;
@@ -69,23 +83,34 @@ async fn run(args: Args<'_>) -> Result<()> {
     let mut udp_session =
         setup_udp(host.as_c_str(), ip, udp_port, stack, &mut udp_channels).await?;
     let mut session = setup_tcp(ip, port, stack, &mut rx, &mut tx).await?;
+
     loop {
-        match subscriber.next_message_pure().await {
-            Events::SetDaemonUrl => {
-                // TODO: should do a ordered shutdown of socket close etc.
-                drop(session);
-                drop(udp_session);
-                let url: Url =
-                    db.daemon_url().await.ok_or(anyhow!("no daemon url set"))?.parse()?;
-                let (ip, port) = find_ip_and_port(&url, stack).await?;
-                let host = CString::new(url.host_str().ok_or(anyhow!("no host"))?)
-                    .expect("CString failed");
-                session = setup_tcp(ip, port, &stack, &mut rx, &mut tx).await?;
-                udp_session =
-                    setup_udp(host.as_c_str(), ip, udp_port, stack, &mut udp_channels).await?;
+        match select(audio_ingest.receive(), subscriber.next_message_pure()).await {
+            Either::First(audio) => {
+                udp_session
+                    .send(AudioPacketRef {
+                        header: AudioPacketHeader { sequence: audio.sequence, stream_id: 0 },
+                        pcm: audio.pcm.as_slice(),
+                    })
+                    .await?;
             }
-            _ => continue,
-        };
+            Either::Second(command) => match command {
+                Events::SetDaemonUrl => {
+                    // TODO: should do a ordered shutdown of socket close etc.
+                    drop(session);
+                    drop(udp_session);
+                    let url: Url =
+                        db.daemon_url().await.ok_or(anyhow!("no daemon url set"))?.parse()?;
+                    let (ip, port) = find_ip_and_port(&url, stack).await?;
+                    let host = CString::new(url.host_str().ok_or(anyhow!("no host"))?)
+                        .expect("CString failed");
+                    session = setup_tcp(ip, port, &stack, &mut rx, &mut tx).await?;
+                    udp_session =
+                        setup_udp(host.as_c_str(), ip, udp_port, stack, &mut udp_channels).await?;
+                }
+                _ => continue,
+            },
+        }
     }
     Ok(())
 }

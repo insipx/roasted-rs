@@ -53,9 +53,13 @@ esp-radio = { version = "1.0.0-beta.1", features = [
 ] }
 esp-rtos = { version = "0.4.0", features = ["esp32s3", "embassy", "esp-radio"] }
 esp-storage = { version = "0.10", features = ["esp32s3"] }
+futures-util = { version = "0.3", default-features = false, features = [
+  "sink",
+] }
 heapless = "0.9"
 hex = { workspace = true, features = ["alloc"], optional = true }
 log = { version = "0.4", default-features = false }
+mbedtls-rs-sys = "0.3"
 nb = "1"
 postcard.workspace = true
 roasted-data-streams = { workspace = true, default-features = false, features = [

@@ -18,6 +18,8 @@ pub enum CliAction {
     ListPorts,
     /// set the url of the roasted-rs service
     SetDaemonUrl(url::Url),
+    /// Listen for audio
+    Listen,
 }
 
 impl core::fmt::Display for CliAction {
@@ -27,6 +29,7 @@ impl core::fmt::Display for CliAction {
             CliAction::InitWifi(_) => write!(f, "InitWifi"),
             CliAction::ListPorts => write!(f, "ListPorts"),
             CliAction::SetDaemonUrl(_) => write!(f, "SetDaemonUrl"),
+            CliAction::Listen => write!(f, "Listen"),
         }
     }
 }

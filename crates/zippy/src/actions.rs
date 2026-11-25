@@ -75,6 +75,9 @@ impl CommandExecutor {
                 self.publisher.publish_immediate(Events::SetDaemonUrl);
                 tracing::info!("daemon url set");
             }
+            CliAction::Listen => {
+                self.publisher.publish_immediate(Events::BeginListening);
+            }
         }
         self.end().await?;
         Ok(())
