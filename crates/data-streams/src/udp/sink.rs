@@ -4,7 +4,7 @@ use mbedtls_rs_sys::{mbedtls_ssl_close_notify, mbedtls_ssl_write};
 use super::*;
 use crate::error::DtlsSendError;
 
-impl Sink<AudioPacket> for UdpDtlsSocket<'_> {
+impl<'pcm> Sink<AudioPacketRef<'pcm>> for UdpDtlsSocket<'_> {
     type Error = DtlsSendError;
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -15,7 +15,7 @@ impl Sink<AudioPacket> for UdpDtlsSocket<'_> {
         self.poll_flush(cx)
     }
 
-    fn start_send(self: Pin<&mut Self>, item: AudioPacket) -> Result<(), Self::Error> {
+    fn start_send(self: Pin<&mut Self>, item: AudioPacketRef<'pcm>) -> Result<(), Self::Error> {
         let this = self.get_mut();
         if this.pending_send.is_some() {
             return Err(DtlsSendError::WritePending);
@@ -29,7 +29,7 @@ impl Sink<AudioPacket> for UdpDtlsSocket<'_> {
         Ok(())
     }
 
-    // A write error is terminal for this DTLS session.
+    // A write error ends dtls session
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         let this = self.as_mut().get_mut();
         let Some(send_buf) = this.pending_send.as_ref() else {

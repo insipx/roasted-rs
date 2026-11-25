@@ -39,7 +39,6 @@ struct Args<'a> {
     db: &'a DbReader<String>,
 }
 
-// TODO: add retries and backoff strategy
 #[embassy_executor::task]
 pub async fn net(stack: Stack<'static>, db: DbReader<String>) {
     tracing::info!("starting TCP/UDP channels");

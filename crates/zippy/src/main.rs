@@ -3,6 +3,7 @@
 #![feature(cstr_display)]
 
 mod actions;
+mod audio;
 mod configuration;
 mod db;
 mod error;

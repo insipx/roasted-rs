@@ -28,28 +28,28 @@ impl Args<'_> {
 /// start the task managing WiFi for zippy.
 /// will connect to WiFi whenever a SetWiFi or start event is emmitted
 /// will retry forever with an exponential backoff strategy until connected.
-/// max duratoin is set to 60 seconds.
+/// max duration is set to 60 seconds.
 #[embassy_executor::task]
 pub async fn wifi(mut controller: WifiController<'static>, db: DbReader<String>) {
     tracing::info!("starting WiFi controller");
     let args = Args { controller: &mut controller, db: &db, attempt: 0 };
-    let (_, task) = attempt
-        .retry(ExponentialBuilder::default().without_max_times())
-        .sleep(backon::EmbassySleeper)
-        .context(args)
-        .notify(|err: &anyhow::Error, dur: Duration| {
-            tracing::info!("encountered `{err}` retrying after {dur:?}");
-        })
-        .await;
+    let (_, task) = {
+        async |mut args| {
+            let result = run(&mut args).await;
+            args.attempt += 1;
+            (args, result)
+        }
+    }
+    .retry(ExponentialBuilder::default().without_max_times())
+    .sleep(backon::EmbassySleeper)
+    .context(args)
+    .notify(|err: &anyhow::Error, dur: Duration| {
+        tracing::info!("encountered `{err}` retrying after {dur:?}");
+    })
+    .await;
     if let Err(e) = task {
         panic!("unrecoverable error occured in WiFi task, {e}");
     }
-}
-
-async fn attempt<'a>(mut args: Args<'a>) -> (Args<'a>, Result<()>) {
-    let result = run(&mut args).await;
-    args.attempt += 1;
-    (args, result)
 }
 
 async fn run(args: &mut Args<'_>) -> Result<()> {
