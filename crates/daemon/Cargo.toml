@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+bon.workspace = true
 color-eyre.workspace = true
 futures.workspace = true
 getrandom = { version = "0.4", features = ["sys_rng"] }
@@ -20,6 +21,7 @@ tracing-loki.workspace = true
 tracing-subscriber.workspace = true
 url.workspace = true
 uuid.workspace = true
+zeroize.workspace = true
 # dont need warp yet, maybe when we
 # want a simple website or something
 # warp.workspace = true

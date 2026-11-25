@@ -42,7 +42,7 @@ struct Args<'a> {
 // TODO: add retries and backoff strategy
 #[embassy_executor::task]
 pub async fn net(stack: Stack<'static>, db: DbReader<String>) {
-    tracing::info!("starting TCP channel");
+    tracing::info!("starting TCP/UDP channels");
     let args = Args { stack: &stack, db: &db };
 
     let task = (|| async { run(args).await })

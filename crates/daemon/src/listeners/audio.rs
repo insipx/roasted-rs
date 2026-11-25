@@ -21,7 +21,7 @@ pin_project! {
 
 impl AudioListener {
     /// Create a DTLS/UDP audio listener bound to a single Zippy peer.
-    pub async fn listen(
+    pub async fn connect(
         address: SocketAddr,
         certificate_chain: &CStr,
         private_key: &CStr,

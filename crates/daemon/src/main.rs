@@ -4,7 +4,7 @@ use color_eyre::eyre::Result;
 use tracing::Level;
 use tracing_subscriber::{filter::Targets, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::args::Args;
+use crate::{args::Args, server::dtls::DtlsKeys};
 
 mod args;
 mod listeners;
@@ -13,7 +13,7 @@ mod server;
 #[tokio::main(flavor = "local")]
 async fn main() -> Result<()> {
     color_eyre::install()?;
-    let Args { gaggimate, tcp_port, udp_port, loki } = args::parse_args()?;
+    let Args { gaggimate, tcp_port, udp_port: _, loki } = args::parse_args()?;
 
     if let Some(loki_url) = loki {
         let (layer, task) = tracing_loki::builder()
@@ -33,8 +33,13 @@ async fn main() -> Result<()> {
             .init();
     }
     let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let handle =
-        tokio::task::spawn_local(server::tcp::server(tcp_port, gaggimate, PathBuf::from(db_url)));
+    let keys = DtlsKeys::new()?;
+    let handle = tokio::task::spawn_local(server::tcp::server(
+        tcp_port,
+        gaggimate,
+        PathBuf::from(db_url),
+        keys,
+    ));
 
     tokio::try_join!(handle)?.0?;
     Ok(())

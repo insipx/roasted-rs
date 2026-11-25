@@ -8,9 +8,9 @@ use futures::FutureExt;
 use tokio::net::TcpListener;
 use url::Url;
 
-use crate::server::driver::RoastedDriver;
+use crate::server::{driver::RoastedDriver, dtls::DtlsKeys};
 
-pub async fn server(port: u16, gaggimate: Url, db: PathBuf) -> Result<()> {
+pub async fn server(port: u16, gaggimate: Url, db: PathBuf, dtls: DtlsKeys) -> Result<()> {
     let listener = TcpListener::bind(format!("0.0.0.0:{port}")).await?;
     tracing::info!("listening on 0.0.0.0:{port}");
     loop {
@@ -18,7 +18,7 @@ pub async fn server(port: u16, gaggimate: Url, db: PathBuf) -> Result<()> {
         tracing::info!("accepted connection from {addr}");
         let gm = gaggimate.clone();
         let db = db.clone();
-        let driver = RoastedDriver::new(gm, socket, db);
+        let driver = RoastedDriver::new(gm, socket, db, dtls.clone());
         let _handle = tokio::task::spawn_local(driver.run()).map(|jf| match jf {
             Err(e) => tracing::error!("tokio driver task failed execution {}", e),
             Ok(Err(e)) => tracing::error!("driver failed {}", e),

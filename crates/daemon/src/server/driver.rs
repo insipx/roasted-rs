@@ -4,7 +4,7 @@
 //!  - Handles communication with Ollama local LLM
 //!  - Spawned by server upon connection with Zippy
 
-use std::path::PathBuf;
+use std::{net::SocketAddr, path::PathBuf};
 
 use color_eyre::eyre::Result;
 use futures::TryStreamExt;
@@ -12,17 +12,21 @@ use roasted_db::Db;
 use tokio::net::TcpStream;
 use url::Url;
 
-use crate::listeners::gaggimate::GaggimateListener;
+use crate::{
+    listeners::{audio::AudioListener, gaggimate::GaggimateListener},
+    server::dtls::DtlsKeys,
+};
 
 pub struct RoastedDriver {
     gaggimate: Url,
     socket: TcpStream,
     db: PathBuf,
+    dtls: DtlsKeys,
 }
 
 impl RoastedDriver {
-    pub fn new(gaggimate: Url, socket: TcpStream, db: PathBuf) -> Self {
-        Self { gaggimate, socket, db }
+    pub fn new(gaggimate: Url, socket: TcpStream, db: PathBuf, dtls: DtlsKeys) -> Self {
+        Self { gaggimate, socket, db, dtls }
     }
 
     /// Run the driver
@@ -34,9 +38,14 @@ impl RoastedDriver {
 /// Orchestrate the roasted daemon.
 /// Spawned when a zippy connects and closes when it disconnects.
 async fn run(driver: RoastedDriver) -> Result<()> {
-    let RoastedDriver { gaggimate, socket, db } = driver;
+    let RoastedDriver { gaggimate, socket, db, dtls } = driver;
 
     let mut listener = GaggimateListener::connect(&gaggimate).await?;
+    let addr = socket.peer_addr()?;
+    let ip = addr.ip();
+    let socket_addr = SocketAddr::new(ip, 54444);
+    let audio = AudioListener::connect(socket_addr, &dtls.cert, &dtls.key).await?;
+    tracing::info!(port = 54444, %ip, "connected to UDP socket");
     let mut db = Db::connect(&db)?;
 
     while let Some(frames) = listener.try_next().await? {
