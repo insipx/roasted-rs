@@ -10,6 +10,7 @@ pub enum Events {
     SetWiFi,
     SetDaemonUrl,
     Start,
+    BeginListening,
 }
 
 static EVENTS: PubSubChannel<CriticalSectionRawMutex, Events, 10, 10, 1> = PubSubChannel::new();

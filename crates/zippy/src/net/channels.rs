@@ -6,6 +6,8 @@ use embassy_net::{
 };
 use url::Url;
 
+use super::*;
+
 pub struct TcpChannel<'bufs> {
     stack: Stack<'static>,
     ip: IpAddress,
@@ -36,16 +38,26 @@ impl<'bufs> TcpChannel<'bufs> {
     // todo: close the socket, or add fn for reopining to diff url
 }
 
-pub struct UdpChannel<'bufs> {
-    stack: Stack<'static>,
-    ip: IpAddress,
-    socket: UdpSocket<'bufs>,
+pub(super) struct UdpChannels {
+    pub(super) rx_meta: [PacketMetadata; 4],
+    pub(super) tx_meta: [PacketMetadata; 4],
+    pub(super) rx: [u8; 4096],
+    pub(super) tx: [u8; 4096],
 }
 
-#[bon::bon]
-impl<'bufs> UdpChannel<'bufs> {
-    #[builder(start_fn = builder, finish_fn = connect)]
-    pub async fn connect(ip: &IpAddress, stack: Stack<'static>) -> Result<Self> {
-        todo!()
+impl UdpChannels {
+    pub(super) fn new() -> Self {
+        Self {
+            rx_meta: [PacketMetadata::EMPTY; 4],
+            tx_meta: [PacketMetadata::EMPTY; 4],
+            rx: [0u8; 4096],
+            tx: [0u8; 4096],
+        }
+    }
+
+    pub(super) fn into_tuple(
+        self,
+    ) -> ([PacketMetadata; 4], [PacketMetadata; 4], [u8; 4096], [u8; 4096]) {
+        (self.rx_meta, self.tx_meta, self.rx, self.tx)
     }
 }

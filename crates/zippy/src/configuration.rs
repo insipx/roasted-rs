@@ -17,3 +17,7 @@ pub mod db {
 }
 
 pub const DTLS_ROOT_CA: &[u8] = include_bytes!("../certs/volos-root-ca.der");
+
+pub const I2C_ADDRESS: u8 = 0x40;
+
+pub const DEFAULT_DAEMON_UDP_PORT: &str = "54444";

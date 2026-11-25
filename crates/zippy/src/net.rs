@@ -18,7 +18,7 @@ use roasted_data_streams::udp::{UdpDtlsSocket, embedded_net::EmbassyPeerSocket};
 use url::Url;
 
 use crate::{
-    configuration::DTLS_ROOT_CA,
+    configuration::{DEFAULT_DAEMON_UDP_PORT, DTLS_ROOT_CA},
     db::{self, DbReader},
     eventbus::Events,
 };
@@ -62,9 +62,8 @@ async fn run(args: Args<'_>) -> Result<()> {
     let (mut rx, mut tx) = ([0u8; 128], [0u8; 128]);
     let mut udp_channels = UdpChannels::new();
     stack.wait_config_up().await;
-    let url = db.daemon_url().await.ok_or(anyhow!("no daemon url set"))?;
-    let udp_port: u16 = db.udp_port().await.as_deref().unwrap_or("54444").parse()?;
-    let url = url.parse()?;
+    let url: Url = db.daemon_url().await.ok_or(anyhow!("no daemon url set"))?.parse()?;
+    let udp_port: u16 = db.udp_port().await.unwrap_or(DEFAULT_DAEMON_UDP_PORT.into()).parse()?;
     let (ip, port) = find_ip_and_port(&url, stack).await?;
     let host = CString::new(url.host_str().ok_or(anyhow!("no host"))?).expect("CString failed");
     let mut udp_session =
@@ -73,14 +72,14 @@ async fn run(args: Args<'_>) -> Result<()> {
     loop {
         match subscriber.next_message_pure().await {
             Events::SetDaemonUrl => {
+                // TODO: should do a ordered shutdown of socket close etc.
+                drop(session);
+                drop(udp_session);
                 let url: Url =
                     db.daemon_url().await.ok_or(anyhow!("no daemon url set"))?.parse()?;
                 let (ip, port) = find_ip_and_port(&url, stack).await?;
                 let host = CString::new(url.host_str().ok_or(anyhow!("no host"))?)
                     .expect("CString failed");
-                // TODO: should do a ordered shutdown of socket close etc.
-                drop(session);
-                drop(udp_session);
                 session = setup_tcp(ip, port, &stack, &mut rx, &mut tx).await?;
                 udp_session =
                     setup_udp(host.as_c_str(), ip, udp_port, stack, &mut udp_channels).await?;
@@ -89,28 +88,6 @@ async fn run(args: Args<'_>) -> Result<()> {
         };
     }
     Ok(())
-}
-
-struct UdpChannels {
-    rx_meta: [PacketMetadata; 4],
-    tx_meta: [PacketMetadata; 4],
-    rx: [u8; 4096],
-    tx: [u8; 4096],
-}
-
-impl UdpChannels {
-    fn new() -> Self {
-        Self {
-            rx_meta: [PacketMetadata::EMPTY; 4],
-            tx_meta: [PacketMetadata::EMPTY; 4],
-            rx: [0u8; 4096],
-            tx: [0u8; 4096],
-        }
-    }
-
-    fn into_tuple(self) -> ([PacketMetadata; 4], [PacketMetadata; 4], [u8; 4096], [u8; 4096]) {
-        (self.rx_meta, self.tx_meta, self.rx, self.tx)
-    }
 }
 
 async fn setup_tcp<'a>(
