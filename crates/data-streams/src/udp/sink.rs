@@ -16,6 +16,7 @@ impl<'pcm> Sink<AudioPacketRef<'pcm>> for UdpDtlsSocket<'_> {
     }
 
     fn start_send(self: Pin<&mut Self>, item: AudioPacketRef<'pcm>) -> Result<(), Self::Error> {
+        tracing::debug!(sequence = item.header.sequence, "starting udp send");
         let this = self.get_mut();
         if this.pending_send.is_some() {
             return Err(DtlsSendError::WritePending);

@@ -3360,6 +3360,7 @@ dependencies = [
  "futures",
  "getrandom 0.4.3",
  "lexopt",
+ "mbedtls-rs-sys",
  "pin-project-lite",
  "roasted-data-streams",
  "roasted-db",
@@ -3394,6 +3395,7 @@ dependencies = [
  "serde",
  "thiserror 2.0.21",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

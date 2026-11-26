@@ -4,14 +4,16 @@
 use std::path::PathBuf;
 
 use color_eyre::Result;
-use futures::FutureExt;
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, TcpSocket};
 use url::Url;
 
 use crate::server::{driver::RoastedDriver, dtls::DtlsKeys};
 
 pub async fn server(port: u16, gaggimate: Url, db: PathBuf, dtls: DtlsKeys) -> Result<()> {
-    let listener = TcpListener::bind(format!("0.0.0.0:{port}")).await?;
+    let socket = TcpSocket::new_v4()?;
+    socket.set_keepalive(true)?;
+    socket.bind(format!("0.0.0.0:{port}").parse()?)?;
+    let listener = socket.listen(1024)?;
     tracing::info!("listening on 0.0.0.0:{port}");
     loop {
         let (socket, addr) = listener.accept().await?;
@@ -19,10 +21,10 @@ pub async fn server(port: u16, gaggimate: Url, db: PathBuf, dtls: DtlsKeys) -> R
         let gm = gaggimate.clone();
         let db = db.clone();
         let driver = RoastedDriver::new(gm, socket, db, dtls.clone());
-        let _handle = tokio::task::spawn_local(driver.run()).map(|jf| match jf {
-            Err(e) => tracing::error!("tokio driver task failed execution {}", e),
-            Ok(Err(e)) => tracing::error!("driver failed {}", e),
-            Ok(Ok(_)) => (),
+        tokio::task::spawn_local(async move {
+            if let Err(error) = driver.run().await {
+                tracing::error!(%addr, ?error, "driver failed");
+            }
         });
     }
 }

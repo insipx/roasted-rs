@@ -8,8 +8,10 @@ use std::{net::SocketAddr, path::PathBuf};
 
 use color_eyre::eyre::Result;
 use futures::TryStreamExt;
+use roasted_data_streams::zippy::ResponseStream;
 use roasted_db::Db;
-use tokio::net::TcpStream;
+use tokio::net::{TcpStream, tcp::OwnedWriteHalf};
+use tokio_tungstenite::tungstenite::handshake::client::Response;
 use url::Url;
 
 use crate::{
@@ -19,14 +21,16 @@ use crate::{
 
 pub struct RoastedDriver {
     gaggimate: Url,
-    socket: TcpStream,
+    responses: ResponseStream,
     db: PathBuf,
     dtls: DtlsKeys,
+    tcp_write: OwnedWriteHalf,
 }
 
 impl RoastedDriver {
     pub fn new(gaggimate: Url, socket: TcpStream, db: PathBuf, dtls: DtlsKeys) -> Self {
-        Self { gaggimate, socket, db, dtls }
+        let (read, write) = socket.into_split();
+        Self { gaggimate, responses: ResponseStream::new_tokio(read), tcp_write: write, db, dtls }
     }
 
     /// Run the driver
@@ -38,24 +42,55 @@ impl RoastedDriver {
 /// Orchestrate the roasted daemon.
 /// Spawned when a zippy connects and closes when it disconnects.
 async fn run(driver: RoastedDriver) -> Result<()> {
-    let RoastedDriver { gaggimate, socket, db, dtls } = driver;
-
+    let RoastedDriver { gaggimate, mut responses, db, dtls, .. } = driver;
+    // TODO: Add a timeout/retry loop
     let mut listener = GaggimateListener::connect(&gaggimate).await?;
-    let addr = socket.peer_addr()?;
-    let ip = addr.ip();
-    let socket_addr = SocketAddr::new(ip, 54444);
-    let audio = AudioListener::connect(socket_addr, &dtls.cert, &dtls.key).await?;
-    tracing::info!(port = 54444, %ip, "connected to UDP socket");
-    let mut db = Db::connect(&db)?;
+    tracing::info!("connected to gaggimate");
+    let audio = AudioListener::connect("0.0.0.0:54444".parse()?, &dtls.cert, &dtls.key);
 
-    while let Some(frames) = listener.try_next().await? {
-        db.record_frames(&frames)?;
-        // derive features
-        // initiate LLM facts recital of first shot profiles
-        // Ask for shot taste
-        // give judgement
-        // conversation sequence
-        // end
+    let mut audio = tokio::select! {
+        udp = audio => {
+            udp
+        },
+        // in case we need to restart con b/c of a tcp reconnect
+        response = responses.try_next() => {
+            let Some(response) = response? else {
+                return Ok(());
+            };
+            tracing::info!("got zippy response {:?}", response);
+            panic!("Received zippy response before udp conn");
+        }
+    }?;
+
+    tracing::info!(port = 54444, "connected to UDP socket");
+    let mut db = Db::connect(&db)?;
+    loop {
+        tokio::select! {
+            frames = listener.try_next() => {
+                let Some(frames) = frames? else {
+                    break;
+                };
+                db.record_frames(&frames)?;
+                // derive features
+                // initiate LLM facts recital of first shot profiles
+                // Ask for shot taste
+                // give judgement
+                // conversation sequence
+                // end
+            },
+            audio = audio.try_next() => {
+                let Some((header, pcm)) = audio? else {
+                    break;
+                };
+                tracing::debug!(sequence = header.sequence, len = pcm.len(), "received audio");
+            },
+            response = responses.try_next() => {
+                let Some(response) = response? else {
+                    break;
+                };
+                tracing::info!("got zippy response {:?}", response);
+            }
+        }
     }
     Ok(())
 }

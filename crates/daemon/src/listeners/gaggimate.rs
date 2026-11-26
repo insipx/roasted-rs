@@ -54,6 +54,7 @@ impl Stream for GaggimateListener {
                 GmMessage::Status(s) => this.current_state.merge(s),
                 GmMessage::Unknown => eprintln!("encountered unknown message type, continuing..."),
             }
+            tracing::debug!("frame: {:?}", this.current_state);
             // we are pulling a shot
             if this.current_state.process.is_active() {
                 this.frames.push(this.current_state.clone());

@@ -54,7 +54,7 @@ pub(super) unsafe extern "C" fn send_callback(
     }
 }
 
-pub(super) unsafe extern "C" fn rng_callback(
+pub(crate) unsafe extern "C" fn rng_callback(
     context: *mut c_void,
     output: *mut u8,
     len: usize,

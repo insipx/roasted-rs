@@ -10,6 +10,7 @@ critical-section = { version = "1", features = ["std"] }
 futures.workspace = true
 getrandom = { version = "0.4", features = ["sys_rng"] }
 lexopt.workspace = true
+mbedtls-rs-sys = "0.3"
 pin-project-lite.workspace = true
 roasted-data-streams.workspace = true
 roasted-db.workspace = true

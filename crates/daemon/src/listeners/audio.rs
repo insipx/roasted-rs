@@ -41,6 +41,7 @@ impl AudioListener {
         )
         .wrap_err_with(|| format!("failed DTLS setup for {peer}"))?;
 
+        tracing::info!(%address, "listening for DTLS audio");
         Ok(Self { inner })
     }
 }

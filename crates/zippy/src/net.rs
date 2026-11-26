@@ -76,43 +76,76 @@ async fn run(args: &mut Args<'_>) -> Result<()> {
     let (mut rx, mut tx) = ([0u8; 128], [0u8; 128]);
     let mut udp_channels = UdpChannels::new();
     stack.wait_config_up().await;
+    let mut channels = Channels::builder().stack(stack.clone()).udp_channels(udp_channels);
     let url: Url = db.daemon_url().await.ok_or(anyhow!("no daemon url set"))?.parse()?;
     let udp_port: u16 = db.udp_port().await.unwrap_or(DEFAULT_DAEMON_UDP_PORT.into()).parse()?;
     let (ip, port) = find_ip_and_port(&url, stack).await?;
-    let host = CString::new(url.host_str().ok_or(anyhow!("no host"))?).expect("CString failed");
-    let mut udp_session =
-        setup_udp(host.as_c_str(), ip, udp_port, stack, &mut udp_channels).await?;
-    let mut session = setup_tcp(ip, port, stack, &mut rx, &mut tx).await?;
+    let mut host = CString::new(url.host_str().ok_or(anyhow!("no host"))?).expect("CString failed");
+    let mut channels = channels.ip(ip).tcp_port(port).udp_port(udp_port).udp_host(host).build();
+    let (mut session, mut udp_session) = setup_channels(&mut channels).await?;
 
     loop {
         match select(audio_ingest.receive(), subscriber.next_message_pure()).await {
             Either::First(audio) => {
+                tracing::info!("sending audio packet");
                 udp_session
                     .send(AudioPacketRef {
                         header: AudioPacketHeader { sequence: audio.sequence, stream_id: 0 },
                         pcm: audio.pcm.as_slice(),
                     })
                     .await?;
+                audio_ingest.receive_done();
+                tracing::info!("sent audio packet");
             }
             Either::Second(command) => match command {
                 Events::SetDaemonUrl => {
-                    // TODO: should do a ordered shutdown of socket close etc.
-                    drop(session);
+                    // timeout
+                    embassy_time::with_timeout(
+                        embassy_time::Duration::from_millis(1_000),
+                        SinkExt::close(&mut udp_session),
+                    )
+                    .await
+                    .map_err(|_| anyhow!("UDP socket close timed out"))??;
+                    session.shutdown().await?;
                     drop(udp_session);
                     let url: Url =
                         db.daemon_url().await.ok_or(anyhow!("no daemon url set"))?.parse()?;
                     let (ip, port) = find_ip_and_port(&url, stack).await?;
-                    let host = CString::new(url.host_str().ok_or(anyhow!("no host"))?)
+                    host = CString::new(url.host_str().ok_or(anyhow!("no host"))?)
                         .expect("CString failed");
-                    session = setup_tcp(ip, port, &stack, &mut rx, &mut tx).await?;
-                    udp_session =
-                        setup_udp(host.as_c_str(), ip, udp_port, stack, &mut udp_channels).await?;
+                    channels.new_addr(ip, Some(port), None, host);
+                    (session, udp_session) = setup_channels(&mut channels).await?;
                 }
                 _ => continue,
             },
         }
     }
     Ok(())
+}
+
+async fn setup_channels<'a>(
+    channels: &'a mut Channels,
+) -> Result<(TcpChannel<'a>, UdpDtlsSocket<'a>)> {
+    let (r1, r2) = embassy_futures::join::join(
+        setup_tcp(
+            channels.ip,
+            channels.tcp_port,
+            &channels.stack,
+            &mut channels.rx,
+            &mut channels.tx,
+        ),
+        setup_udp(
+            channels.ip,
+            channels.udp_port,
+            channels.udp_host.as_c_str(),
+            &channels.stack,
+            &mut channels.udp_channels,
+        ),
+    )
+    .await;
+    let tcp = r1?;
+    let udp = r2?;
+    Ok((tcp, udp))
 }
 
 async fn setup_tcp<'a>(
@@ -122,7 +155,9 @@ async fn setup_tcp<'a>(
     rx: &'a mut [u8],
     tx: &'a mut [u8],
 ) -> Result<TcpChannel<'a>> {
-    let tcp = TcpSocket::new(*stack, rx, tx);
+    let mut tcp = TcpSocket::new(*stack, rx, tx);
+    tcp.set_keep_alive(Some(embassy_time::Duration::from_secs(5)));
+    tcp.set_timeout(Some(embassy_time::Duration::from_secs(10)));
     let tcp_channel =
         TcpChannel::builder().stack(*stack).ip(&ip).port(port).socket(tcp).connect().await?;
     tracing::info!(addr = ?tcp_channel.remote_endpoint(), "tcp connected");
@@ -130,9 +165,9 @@ async fn setup_tcp<'a>(
 }
 
 async fn setup_udp<'a>(
-    host: &CStr,
     ip: IpAddress,
     port: u16,
+    host: &CStr,
     stack: &Stack<'static>,
     channels: &'a mut UdpChannels,
 ) -> Result<UdpDtlsSocket<'a>> {
@@ -147,9 +182,11 @@ async fn setup_udp<'a>(
     let peer = EmbassyPeerSocket::new(socket, IpEndpoint { addr: ip, port });
     let rng =
         Trng::try_new().map_err(|err| anyhow!("unable to initialize RNG for DTLS: {err:?}"))?;
-    let udp_channel = UdpDtlsSocket::new_client(Box::new(peer), rng, DTLS_ROOT_CA, host)
+    let mut udp_channel = UdpDtlsSocket::new_client(Box::new(peer), rng, DTLS_ROOT_CA, host)
         .with_context(|| format!("failed creating new DTLS Socket"))?;
     tracing::info!(host = &*host.to_string_lossy(), port, "UDP connected");
+    udp_channel.handshake().await?;
+    tracing::debug!("DTLS Handshake success");
     Ok(udp_channel)
 }
 

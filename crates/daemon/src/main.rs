@@ -8,6 +8,7 @@ use crate::{args::Args, server::dtls::DtlsKeys};
 
 mod args;
 mod listeners;
+mod psa;
 mod server;
 
 #[tokio::main(flavor = "local")]
@@ -34,6 +35,7 @@ async fn main() -> Result<()> {
     }
     let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let keys = DtlsKeys::new()?;
+    psa::init()?;
     let handle = tokio::task::spawn_local(server::tcp::server(
         tcp_port,
         gaggimate,

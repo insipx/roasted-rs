@@ -13,13 +13,13 @@ use futures_core::Stream;
 use mbedtls_rs_sys::{
     MBEDTLS_ERR_SSL_BAD_INPUT_DATA, MBEDTLS_ERR_SSL_INTERNAL_ERROR,
     MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY, MBEDTLS_ERR_SSL_WANT_READ, MBEDTLS_ERR_SSL_WANT_WRITE,
-    MBEDTLS_SSL_IN_CONTENT_LEN, MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_PRESET_DEFAULT,
-    MBEDTLS_SSL_TRANSPORT_DATAGRAM, MBEDTLS_SSL_VERIFY_REQUIRED, mbedtls_ssl_conf_authmode,
-    mbedtls_ssl_conf_ca_chain, mbedtls_ssl_conf_rng, mbedtls_ssl_config,
-    mbedtls_ssl_config_defaults, mbedtls_ssl_config_free, mbedtls_ssl_config_init,
-    mbedtls_ssl_context, mbedtls_ssl_free, mbedtls_ssl_init, mbedtls_ssl_read, mbedtls_ssl_set_bio,
-    mbedtls_ssl_set_hostname, mbedtls_ssl_setup, mbedtls_x509_crt, mbedtls_x509_crt_free,
-    mbedtls_x509_crt_init, mbedtls_x509_crt_parse_der,
+    MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_PRESET_DEFAULT, MBEDTLS_SSL_TRANSPORT_DATAGRAM,
+    MBEDTLS_SSL_VERIFY_REQUIRED, mbedtls_ssl_conf_authmode, mbedtls_ssl_conf_ca_chain,
+    mbedtls_ssl_conf_rng, mbedtls_ssl_config, mbedtls_ssl_config_defaults, mbedtls_ssl_config_free,
+    mbedtls_ssl_config_init, mbedtls_ssl_context, mbedtls_ssl_free, mbedtls_ssl_handshake,
+    mbedtls_ssl_init, mbedtls_ssl_read, mbedtls_ssl_set_bio, mbedtls_ssl_set_hostname,
+    mbedtls_ssl_setup, mbedtls_x509_crt, mbedtls_x509_crt_free, mbedtls_x509_crt_init,
+    mbedtls_x509_crt_parse_der,
 };
 use rand_core::TryCryptoRng;
 use serde::{Deserialize, Serialize};
@@ -42,9 +42,7 @@ mod stream;
 #[cfg(any(feature = "std", feature = "embassy-net"))]
 mod timer;
 
-pub use mbedtls_callbacks::*;
-// pub use sink::*;
-// pub use stream::*;
+pub(crate) use mbedtls_callbacks::*;
 
 pub trait UdpSocket {
     fn poll_recv(
@@ -88,6 +86,30 @@ impl<'net> UdpDtlsSocket<'net> {
     pub fn new(socket: Box<dyn UdpSocket + 'net>, rng: impl TryCryptoRng + 'net) -> Self {
         Self::new_with_endpoint(socket, rng, MBEDTLS_SSL_IS_CLIENT as c_int, |_| Ok(()))
             .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    /// Init the DTLS Handshake
+    pub async fn handshake(&mut self) -> Result<(), DtlsSetupError> {
+        core::future::poll_fn(|cx| {
+            match &mut self.context.borrow_mut().waker {
+                Some(waker) => waker.clone_from(cx.waker()),
+                slot @ None => *slot = Some(cx.waker().clone()),
+            }
+            let result = unsafe { mbedtls_ssl_handshake(self.ssl_context.as_mut()) };
+
+            match result {
+                MBEDTLS_ERR_SSL_WANT_READ | MBEDTLS_ERR_SSL_WANT_WRITE => {
+                    self.poll_timer(cx);
+                    Poll::Pending
+                }
+                0 => Poll::Ready(Ok(())),
+                code @ _ => {
+                    Poll::Ready(Err(DtlsSetupError { operation: "initial dtls handshake", code }))
+                }
+            }
+        })
+        .await?;
+        Ok(())
     }
 
     /// Create a DTLS client that verifies the server against a DER-encoded root CA

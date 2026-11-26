@@ -16,15 +16,20 @@ embedded-io-adapters = { workspace = true, features = [
 ], optional = true }
 embedded-io-async.workspace = true
 futures-core.workspace = true
-futures-util = { version = "0.3", default-features = false, features = ["sink"] }
+futures-util = { version = "0.3", default-features = false, features = [
+  "sink",
+] }
 mbedtls-rs-sys = { version = "0.3" }
 pin-project-lite.workspace = true
 postcard.workspace = true
 rand_core = "0.10"
-roasted-types = { workspace = true, default-features = false, features = ["zippy"] }
+roasted-types = { workspace = true, default-features = false, features = [
+  "zippy",
+] }
 serde.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, optional = true }
+tracing = { workspace = true, default-features = false }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Use system headers instead of mbedtls-rs-sys's minimal Clang sysroot on Linux.
@@ -32,5 +37,18 @@ mbedtls-rs-sys = { version = "0.3", features = ["use-gcc"] }
 
 [features]
 default = ["std"]
-std = ["embedded-io-adapters", "roasted-types/std", "tokio", "tokio/net", "tokio/time"]
-embassy-net = ["dep:embassy-net", "dep:embassy-time", "dep:embassy-time-driver"]
+std = [
+  "embedded-io-adapters",
+  "roasted-types/std",
+  "tokio",
+  "tokio/net",
+  "tokio/time",
+  "tracing/std",
+]
+
+embassy-net = [
+  "dep:embassy-net",
+  "dep:embassy-time",
+  "dep:embassy-time-driver",
+  "tracing/log",
+]
