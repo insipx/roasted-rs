@@ -128,7 +128,7 @@ pub struct WarningState {
     pub active: Option<bool>,
 }
 
-/// Documented warning categories.
+/// Warning categories emitted by the firmware's WarningManager.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum WarningKey {
@@ -144,6 +144,10 @@ pub enum WarningKey {
     ScaleBattery,
     /// Temperature.
     Temperature,
+    /// Scheduled backflush is due.
+    Backflush,
+    /// Scheduled descaling is due.
+    Descaling,
 }
 
 /// Warning severity on the JSON wire.

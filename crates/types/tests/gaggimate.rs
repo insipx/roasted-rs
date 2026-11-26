@@ -1,5 +1,5 @@
 use roasted_types::ws::gaggimate::{
-    MachineMode, Message, Patch, ProcessActivity, Status, WarningLevel,
+    MachineMode, Message, Patch, ProcessActivity, Status, WarningKey, WarningLevel,
 };
 use serde_json::json;
 
@@ -151,6 +151,27 @@ fn invalid_status_measurement_is_rejected() {
 #[test]
 fn missing_message_type_is_rejected() {
     assert!(serde_json::from_value::<Message>(json!({"pr": 8.5})).is_err());
+}
+
+#[test]
+fn status_round_trips_cleaning_schedule_warnings() {
+    let original = json!({
+        "tp": "evt:status",
+        "warn": [
+            {"k": "backflush", "l": 1, "a": true},
+            {"k": "descaling", "l": 2, "a": false}
+        ]
+    });
+    let message: Message = serde_json::from_value(original.clone()).unwrap();
+    let Message::Status(status) = &message else {
+        panic!("expected status");
+    };
+    let Patch::Value(warnings) = &status.warnings else {
+        panic!("expected warnings");
+    };
+    assert_eq!(warnings[0].category, WarningKey::Backflush);
+    assert_eq!(warnings[1].category, WarningKey::Descaling);
+    assert_eq!(serde_json::to_value(message).unwrap(), original);
 }
 
 #[test]
