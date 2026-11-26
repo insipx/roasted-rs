@@ -171,12 +171,11 @@ async fn capture_audio_for(
             // https://docs.espressif.com/projects/rust/esp-hal/1.2.0/esp32s3/esp_hal/dma/struct.DmaRxStreamBufView.html
             filled += capture.pop(&mut audio[filled..]);
         }
-        tracing::info!("awaiting send slot");
         let mut buf = tx.send().await;
         *buf = AudioChunk { sequence, pcm: audio };
         tx.send_done();
-        tracing::info!("sent");
         now = Instant::now();
+        sequence += 1;
     }
     Ok(())
 }
